@@ -121,6 +121,8 @@ export const api = {
   getCostOrderCampaigns: (clientId) => req('/cost-orders/campaigns?clientId=' + encodeURIComponent(clientId || '')),
   getCostOrderProducts: (clientId) => req('/cost-orders/products?clientId=' + encodeURIComponent(clientId || '')),
   createCostOrder: (payload) => req('/cost-orders', { method: 'POST', body: JSON.stringify(payload) }),
+  getCostOrder: (id) => req('/cost-orders/' + encodeURIComponent(id)),
+  updateCostOrder: (id, payload) => req('/cost-orders/' + encodeURIComponent(id), { method: 'PUT', body: JSON.stringify(payload) }),
   getOrders: () => req('/orders'),
   getOrder: (id) => req('/orders/' + encodeURIComponent(id)),
   createOrder: (payload) => req('/orders', { method: 'POST', body: JSON.stringify(payload) }),

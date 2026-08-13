@@ -77,6 +77,78 @@ export interface CostOrderCreatePayload {
   detalles?: unknown; // array de { detalle, cantidad, valor }
 }
 
+export type CostOrderUpdatePayload = CostOrderCreatePayload;
+
+// Fila cruda de la cabecera al cargar para edición.
+export interface CostOrderHeaderRow extends RowDataPacket {
+  id: number;
+  idEstado: number | null;
+  estado: string | null;
+  color: string | null;
+  idCliente: number | null;
+  cliente: string | null;
+  idProveedor: number | null;
+  proveedor: string | null;
+  idCampana: number | null;
+  campana: string | null;
+  idProducto: number | null;
+  producto: string | null;
+  idServicio: number | null;
+  servicio: string | null;
+  tipo: string | null;
+  observacion: string | null;
+  porcIva: number | null;
+  porcDescuento: number | null;
+  valor: number | null;
+  total: number | null;
+  cobrado: number | null;
+  faltante: number | null;
+  fecha: Date | string | null;
+}
+
+// Fila cruda de una línea de detalle (con flag de si está vinculada a presupuesto).
+export interface CostOrderDetailRow extends RowDataPacket {
+  idDetalle: number;
+  detalle: string;
+  cantidad: number;
+  valor: number;
+  total: number;
+  hasBudget: number; // 1 si tiene sys_oc_ppto, 0 si no
+}
+
+export interface CostOrderDetailItem {
+  idDetalle: number;
+  detalle: string;
+  cantidad: number;
+  valor: number;
+  total: number;
+  hasBudget: boolean;
+}
+
+export interface CostOrderDetailData {
+  id: number;
+  idEstado: number | null;
+  estado: string | null;
+  editable: boolean; // solo estado 1
+  idCliente: number | null;
+  cliente: string | null;
+  idProveedor: number | null;
+  proveedor: string | null;
+  idCampana: number | null;
+  campana: string | null;
+  idProducto: number | null;
+  producto: string | null;
+  idServicio: number | null;
+  servicio: string | null;
+  tipo: 'INTERNA' | 'EXTERNA' | null;
+  observacion: string | null;
+  porcIva: number;
+  porcDescuento: number;
+  valor: number;
+  total: number;
+  detalles: CostOrderDetailItem[];
+}
+
 export type CostOrderErrorCode =
   | 'COST_ORDERS_SERVER_ERROR'
   | 'COST_ORDERS_FORBIDDEN'

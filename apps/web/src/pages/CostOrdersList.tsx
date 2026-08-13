@@ -243,7 +243,12 @@ export default function CostOrdersList() {
             {ACTION_CATALOG.filter((a) => menu.actions.includes(a.code)).map((a) => (
               <button
                 key={a.code}
-                onClick={() => { /* Acción pendiente de implementar */ setMenu(null); }}
+                onClick={() => {
+                  const orderId = menu.id;
+                  setMenu(null);
+                  if (a.code === 'edit') navigate(`/medios/ordenes-costo/${orderId}/editar`);
+                  /* otras acciones: pendientes de implementar */
+                }}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 11px', border: 'none', background: 'transparent', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', textAlign: 'left', transition: 'background .12s', color: a.danger ? '#ef4444' : 'var(--fg-2,#334155)' }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2,#f7f8fa)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}

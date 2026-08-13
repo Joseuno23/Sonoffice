@@ -63,6 +63,7 @@ export default function AppRoutes() {
         <Route path="/helpdesk" element={<Helpdesk />} />
         <Route path="/medios/ordenes-costo/listar" element={<CostOrdersList />} />
         <Route path="/medios/ordenes-costo/nueva" element={<CostOrderForm />} />
+        <Route path="/medios/ordenes-costo/:id/editar" element={<CostOrderForm />} />
         <Route path="/accesos-rapidos/codigo-etica-conducta" element={<CodeOfEthics />} />
         <Route path="/accesos-rapidos/politicas-sig" element={<SigPolicies />} />
         <Route path="/accesos-rapidos/alcance-sig" element={<SigScope />} />

@@ -3,11 +3,15 @@ import { PermissionsService } from '../permissions/permissions.service';
 import { CostOrderFilters, CostOrdersRepository } from './cost-orders.repository';
 import {
   CostOrderCreatePayload,
+  CostOrderDetailData,
+  CostOrderDetailRow,
+  CostOrderHeaderRow,
   CostOrderListData,
   CostOrderListItem,
   CostOrderListQuery,
   CostOrderResponse,
   CostOrderRow,
+  CostOrderUpdatePayload,
 } from './cost-orders.types';
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -204,6 +208,133 @@ export class CostOrdersService {
     } catch (error) {
       return this.handleError(error);
     }
+  }
+
+  // --- Edición ---
+
+  async getOrderForEdit(id: number): Promise<CostOrderResponse<CostOrderDetailData>> {
+    const orderId = this.toPositiveInteger(id);
+    if (!orderId) return { success: false, data: null, message: 'Orden no encontrada', errorCode: 'COST_ORDERS_VALIDATION' };
+
+    try {
+      const header = await this.costOrdersRepository.findOrderById(orderId);
+      if (!header) return { success: false, data: null, message: 'Orden no encontrada', errorCode: 'COST_ORDERS_VALIDATION' };
+
+      const details = await this.costOrdersRepository.findOrderDetails(orderId);
+      return { success: true, data: this.normalizeOrderDetail(header, details), message: null };
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async updateOrder(
+    userId: number,
+    roleId: number,
+    rawId: unknown,
+    payload: CostOrderUpdatePayload,
+  ): Promise<CostOrderResponse<{ id: number }>> {
+    const id = this.toPositiveInteger(rawId);
+    if (!id) return { success: false, data: null, message: 'Orden no encontrada', errorCode: 'COST_ORDERS_VALIDATION' };
+
+    // Permiso 'edit'.
+    const roleActions = await this.permissionsService.getRoleModuleActions(roleId, COST_ORDERS_MODULE);
+    if (!roleActions.has('edit')) {
+      return { success: false, data: null, message: 'No tienes permiso para editar órdenes de costo', errorCode: 'COST_ORDERS_FORBIDDEN' };
+    }
+
+    // Validación de campos (misma que create, salvo tipo que no se edita).
+    const idCliente = this.toPositiveInteger(payload.idCliente);
+    const idProveedor = this.toPositiveInteger(payload.idProveedor);
+    const idProducto = this.toPositiveInteger(payload.idProducto);
+    const idCampana = this.toPositiveInteger(payload.idCampana);
+    const idServicio = this.toPositiveInteger(payload.idServicio);
+    const observacion = this.toSearchString(payload.observacion);
+    const porcIva = this.toNumber(payload.porcIva, 19);
+    const porcDescuento = this.toNumber(payload.porcDescuento, 0);
+
+    if (!idCliente || !idProveedor || !idProducto || !idCampana || !idServicio) {
+      return { success: false, data: null, message: 'Cliente, proveedor, producto, campaña y servicio son obligatorios', errorCode: 'COST_ORDERS_VALIDATION' };
+    }
+    if (porcIva < 0 || porcIva > 100 || porcDescuento < 0 || porcDescuento > 100) {
+      return { success: false, data: null, message: 'IVA y descuento deben estar entre 0 y 100', errorCode: 'COST_ORDERS_VALIDATION' };
+    }
+
+    const details = this.normalizeDetails(payload.detalles);
+    if (details === null) {
+      return { success: false, data: null, message: 'El detalle de la orden es inválido', errorCode: 'COST_ORDERS_VALIDATION' };
+    }
+
+    try {
+      // Solo se puede editar en estado 1 (borrador).
+      const current = await this.costOrdersRepository.findOrderById(id);
+      if (!current) return { success: false, data: null, message: 'Orden no encontrada', errorCode: 'COST_ORDERS_VALIDATION' };
+      if (Number(current.idEstado) !== 1) {
+        return { success: false, data: null, message: 'Solo se pueden editar órdenes en estado borrador (Activo)', errorCode: 'COST_ORDERS_VALIDATION' };
+      }
+
+      const [clientOk, providerOk] = await Promise.all([
+        this.costOrdersRepository.clientExists(idCliente, 'cliente'),
+        this.costOrdersRepository.clientExists(idProveedor, 'proveedor'),
+      ]);
+      if (!clientOk) return { success: false, data: null, message: 'El cliente seleccionado no existe o está inactivo', errorCode: 'COST_ORDERS_VALIDATION' };
+      if (!providerOk) return { success: false, data: null, message: 'El proveedor seleccionado no existe o está inactivo', errorCode: 'COST_ORDERS_VALIDATION' };
+
+      // Recalcular valor = suma de líneas nuevas (sin ppto) + líneas preservadas (con ppto).
+      const budgetTotal = await this.costOrdersRepository.sumBudgetLineTotals(id);
+      const manualTotal = details.reduce((sum, d) => sum + d.total, 0);
+      const valor = budgetTotal + manualTotal;
+      const descuento = valor * (porcDescuento / 100);
+      const iva = (valor - descuento) * (porcIva / 100);
+      const total = valor - descuento + iva;
+
+      await this.costOrdersRepository.updateOrder(
+        id,
+        {
+          idCliente, idProveedor, idProducto, idCampana, idServicio,
+          observacion: observacion || null, porcIva, porcDescuento,
+          valor: this.round2(valor), total: this.round2(total), idUsuario: userId,
+        },
+        details,
+      );
+
+      return { success: true, data: { id }, message: 'Orden de costo actualizada correctamente' };
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  private normalizeOrderDetail(header: CostOrderHeaderRow, details: CostOrderDetailRow[]): CostOrderDetailData {
+    const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+    return {
+      id: Number(header.id),
+      idEstado: num(header.idEstado),
+      estado: header.estado ?? null,
+      editable: Number(header.idEstado) === 1,
+      idCliente: num(header.idCliente),
+      cliente: header.cliente ?? null,
+      idProveedor: num(header.idProveedor),
+      proveedor: header.proveedor ?? null,
+      idCampana: num(header.idCampana),
+      campana: header.campana ?? null,
+      idProducto: num(header.idProducto),
+      producto: header.producto ?? null,
+      idServicio: num(header.idServicio),
+      servicio: header.servicio ?? null,
+      tipo: header.tipo === 'I' ? 'INTERNA' : header.tipo ? 'EXTERNA' : null,
+      observacion: header.observacion ?? null,
+      porcIva: Number(header.porcIva ?? 19),
+      porcDescuento: Number(header.porcDescuento ?? 0),
+      valor: Number(header.valor ?? 0),
+      total: Number(header.total ?? 0),
+      detalles: details.map((d) => ({
+        idDetalle: Number(d.idDetalle),
+        detalle: d.detalle,
+        cantidad: Number(d.cantidad),
+        valor: Number(d.valor),
+        total: Number(d.total),
+        hasBudget: Number(d.hasBudget) === 1,
+      })),
+    };
   }
 
   private async optionResponse(

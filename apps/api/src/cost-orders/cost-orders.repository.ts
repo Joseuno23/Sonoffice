@@ -2,7 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { PoolConnection } from 'mysql2/promise';
 import { ResultSetHeader } from 'mysql2';
 import { DbService } from '../db/db.service';
-import { CostOrderCountRow, CostOrderOptionRow, CostOrderRow } from './cost-orders.types';
+import {
+  CostOrderCountRow,
+  CostOrderDetailRow,
+  CostOrderHeaderRow,
+  CostOrderOptionRow,
+  CostOrderRow,
+} from './cost-orders.types';
 
 export interface NewCostOrderHeader {
   fecha: string;
@@ -197,6 +203,127 @@ export class CostOrdersRepository {
       [id],
     );
     return rows.length > 0;
+  }
+
+  // --- Edición ---
+
+  // Cabecera completa de una orden para editar.
+  async findOrderById(id: number): Promise<CostOrderHeaderRow | null> {
+    const rows = await this.db.execute<CostOrderHeaderRow[]>(
+      `SELECT
+        o.id_orden AS id,
+        o.id_estado AS idEstado,
+        e.description AS estado,
+        e.color AS color,
+        o.id_cliente AS idCliente,
+        c.nombre AS cliente,
+        o.id_proveedor AS idProveedor,
+        p.nombre AS proveedor,
+        o.id_campana AS idCampana,
+        ca.camp_nombre AS campana,
+        o.id_producto AS idProducto,
+        pr.pdcl_nombre AS producto,
+        o.id_servicio AS idServicio,
+        s.nombre AS servicio,
+        o.tipo AS tipo,
+        o.observacion AS observacion,
+        o.porc_iva AS porcIva,
+        o.porc_descuento AS porcDescuento,
+        o.valor AS valor,
+        o.total AS total,
+        o.cobrado AS cobrado,
+        o.faltante AS faltante,
+        o.fecha AS fecha
+      FROM sys_orden_costos o
+      LEFT JOIN sys_status e ON o.id_estado = e.id_status
+      LEFT JOIN sys_clients c ON o.id_cliente = c.id_client
+      LEFT JOIN sys_clients p ON o.id_proveedor = p.id_client
+      LEFT JOIN cat_campanas ca ON o.id_campana = ca.camp_id
+      LEFT JOIN cat_prodsclies pr ON o.id_producto = pr.pdcl_id
+      LEFT JOIN sys_tipo_servicio s ON o.id_servicio = s.id_tipo_servicio
+      WHERE o.id_orden = ?
+      LIMIT 1`,
+      [id],
+    );
+    return rows[0] ?? null;
+  }
+
+  // Líneas de detalle de una orden, con flag de si están vinculadas a presupuesto.
+  async findOrderDetails(id: number): Promise<CostOrderDetailRow[]> {
+    return this.db.execute<CostOrderDetailRow[]>(
+      `SELECT
+        d.id_detalle AS idDetalle,
+        d.detalle,
+        d.cantidad,
+        d.valor,
+        d.total,
+        CASE WHEN COUNT(p.id_orden) > 0 THEN 1 ELSE 0 END AS hasBudget
+      FROM sys_detalle_costo d
+      LEFT JOIN sys_oc_ppto p ON p.id_detalle_orden = d.id_detalle
+      WHERE d.id_orden = ?
+      GROUP BY d.id_detalle
+      ORDER BY d.id_detalle`,
+      [id],
+    );
+  }
+
+  // Actualiza cabecera + reemplaza líneas de detalle NO vinculadas a presupuesto, en una
+  // transacción. Las líneas con sys_oc_ppto NO se tocan (se preservan para la Fase 2).
+  async updateOrder(
+    id: number,
+    header: {
+      idCliente: number; idProveedor: number; idProducto: number; idCampana: number;
+      idServicio: number; observacion: string | null; porcIva: number; porcDescuento: number;
+      valor: number; total: number; idUsuario: number;
+    },
+    details: NewCostOrderDetail[],
+  ): Promise<void> {
+    await this.db.transaction(async (connection: PoolConnection) => {
+      // Borra solo las líneas SIN presupuesto (preserva las vinculadas).
+      await connection.execute(
+        `DELETE d FROM sys_detalle_costo d
+         LEFT JOIN sys_oc_ppto p ON p.id_detalle_orden = d.id_detalle
+         WHERE d.id_orden = ? AND p.id_orden IS NULL`,
+        [id],
+      );
+
+      if (details.length > 0) {
+        const placeholders = details.map(() => '(?, ?, ?, ?, ?)').join(', ');
+        const params: (string | number)[] = [];
+        for (const d of details) {
+          params.push(id, d.detalle, d.cantidad, d.valor, d.total);
+        }
+        await connection.execute<ResultSetHeader>(
+          `INSERT INTO sys_detalle_costo (id_orden, detalle, cantidad, valor, total) VALUES ${placeholders}`,
+          params,
+        );
+      }
+
+      await connection.execute<ResultSetHeader>(
+        `UPDATE sys_orden_costos SET
+          id_cliente = ?, id_proveedor = ?, id_producto = ?, id_campana = ?,
+          id_servicio = ?, observacion = ?, porc_iva = ?, porc_descuento = ?,
+          valor = ?, total = ?, faltante = valor - cobrado, id_usuario_mod = ?, fecha_mod = NOW()
+        WHERE id_orden = ?`,
+        [
+          header.idCliente, header.idProveedor, header.idProducto, header.idCampana,
+          header.idServicio, header.observacion, header.porcIva, header.porcDescuento,
+          header.valor, header.total, header.idUsuario, id,
+        ],
+      );
+    });
+  }
+
+  // Suma de totales de líneas CON presupuesto (para no perderlas al recalcular valor en update).
+  async sumBudgetLineTotals(id: number): Promise<number> {
+    const rows = await this.db.execute<CostOrderCountRow[]>(
+      `SELECT COALESCE(SUM(d.total), 0) AS total
+       FROM sys_detalle_costo d
+       INNER JOIN sys_oc_ppto p ON p.id_detalle_orden = d.id_detalle
+       WHERE d.id_orden = ?`,
+      [id],
+    );
+    return Number(rows[0]?.total ?? 0);
   }
 
   // Inserta cabecera + detalle en una transacción y devuelve el id de la nueva orden.

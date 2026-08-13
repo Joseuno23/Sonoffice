@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { AuthUser, RequestUser } from '../auth/auth-user.decorator';
 import { CostOrdersService } from './cost-orders.service';
-import { CostOrderCreatePayload, CostOrderListQuery } from './cost-orders.types';
+import { CostOrderCreatePayload, CostOrderListQuery, CostOrderUpdatePayload } from './cost-orders.types';
 
 @Controller('cost-orders')
 @UseGuards(AuthGuard)
@@ -47,5 +47,16 @@ export class CostOrdersController {
   @Post()
   createOrder(@AuthUser() user: RequestUser, @Body() payload: CostOrderCreatePayload) {
     return this.costOrdersService.createOrder(user.userId, user.roleId, payload);
+  }
+
+  // :id va al final para no capturar las rutas específicas (statuses, clients, etc.).
+  @Get(':id')
+  getOrder(@Param('id') id: string) {
+    return this.costOrdersService.getOrderForEdit(Number(id));
+  }
+
+  @Put(':id')
+  updateOrder(@AuthUser() user: RequestUser, @Param('id') id: string, @Body() payload: CostOrderUpdatePayload) {
+    return this.costOrdersService.updateOrder(user.userId, user.roleId, id, payload);
   }
 }
