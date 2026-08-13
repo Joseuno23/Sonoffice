@@ -83,6 +83,8 @@ export const api = {
   updateSystemRoleStatus: (id, isActive) => req('/system/roles/' + encodeURIComponent(id) + '/status', { method: 'PATCH', body: JSON.stringify({ isActive }) }),
   getSystemRoleMenuPermissions: (id) => req('/system/roles/' + encodeURIComponent(id) + '/menu-permissions'),
   updateSystemRoleMenuPermissions: (id, menuIds) => req('/system/roles/' + encodeURIComponent(id) + '/menu-permissions', { method: 'PUT', body: JSON.stringify({ menuIds }) }),
+  getSystemRoleActionPermissions: (id) => req('/system/roles/' + encodeURIComponent(id) + '/action-permissions'),
+  updateSystemRoleActionPermissions: (id, actionIds) => req('/system/roles/' + encodeURIComponent(id) + '/action-permissions', { method: 'PUT', body: JSON.stringify({ actionIds }) }),
   getSystemUsers: () => req('/system/users'),
   getSystemUser: (id) => req('/system/users/' + encodeURIComponent(id)),
   createSystemUser: (payload) => req('/system/users', { method: 'POST', body: JSON.stringify(payload) }),
@@ -106,6 +108,19 @@ export const api = {
   rateHelpdeskTicket: (id, rating) => req('/helpdesk/' + encodeURIComponent(id) + '/rating', { method: 'POST', body: JSON.stringify({ rating }) }),
   getHelpdeskServiceTypes: () => req('/helpdesk/service-types'),
   getHelpdeskServiceDetails: (serviceType) => req('/helpdesk/service-details?serviceType=' + encodeURIComponent(serviceType || '')),
+  getCostOrders: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '') as [string, string][],
+    ).toString();
+    return req('/cost-orders' + (qs ? '?' + qs : ''));
+  },
+  getCostOrderStatuses: () => req('/cost-orders/statuses'),
+  getCostOrderClients: (search) => req('/cost-orders/clients' + (search ? '?search=' + encodeURIComponent(search) : '')),
+  getCostOrderProviders: (search) => req('/cost-orders/providers' + (search ? '?search=' + encodeURIComponent(search) : '')),
+  getCostOrderServices: (tipo) => req('/cost-orders/services?tipo=' + encodeURIComponent(tipo || 'I')),
+  getCostOrderCampaigns: (clientId) => req('/cost-orders/campaigns?clientId=' + encodeURIComponent(clientId || '')),
+  getCostOrderProducts: (clientId) => req('/cost-orders/products?clientId=' + encodeURIComponent(clientId || '')),
+  createCostOrder: (payload) => req('/cost-orders', { method: 'POST', body: JSON.stringify(payload) }),
   getOrders: () => req('/orders'),
   getOrder: (id) => req('/orders/' + encodeURIComponent(id)),
   createOrder: (payload) => req('/orders', { method: 'POST', body: JSON.stringify(payload) }),

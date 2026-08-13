@@ -8,6 +8,8 @@ import { MenusModule } from './menus/menus.module';
 import { RolesModule } from './roles/roles.module';
 import { SystemUsersModule } from './system-users/system-users.module';
 import { HelpdeskModule } from './helpdesk/helpdesk.module';
+import { CostOrdersModule } from './cost-orders/cost-orders.module';
+import { PermissionsModule } from './permissions/permissions.module';
 import { HealthController } from './health.controller';
 import databaseConfig from './config/database.config';
 import emailConfig from './config/email.config';
@@ -29,6 +31,8 @@ import { DbModule } from './db/db.module';
     RolesModule,
     SystemUsersModule,
     HelpdeskModule,
+    CostOrdersModule,
+    PermissionsModule,
   ],
   controllers: [HealthController],
 })

@@ -16,6 +16,9 @@ import SigPolicies from '../pages/SigPolicies';
 import SigScope from '../pages/SigScope';
 import InternalRegulation from '../pages/InternalRegulation';
 import Helpdesk from '../pages/Helpdesk';
+import CostOrdersList from '../pages/CostOrdersList';
+import CostOrderForm from '../pages/CostOrderForm';
+import RolePermissions from '../pages/RolePermissions';
 
 function RequireAuth({ children }) {
   const { user } = useAuth();
@@ -55,8 +58,11 @@ export default function AppRoutes() {
         <Route path="/sistema" element={<ComingSoon />} />
         <Route path="/system/menus" element={<SystemMenus />} />
         <Route path="/system/roles" element={<SystemRoles />} />
+        <Route path="/system/roles/permissions" element={<RolePermissions />} />
         <Route path="/system/users" element={<SystemUsers />} />
         <Route path="/helpdesk" element={<Helpdesk />} />
+        <Route path="/medios/ordenes-costo/listar" element={<CostOrdersList />} />
+        <Route path="/medios/ordenes-costo/nueva" element={<CostOrderForm />} />
         <Route path="/accesos-rapidos/codigo-etica-conducta" element={<CodeOfEthics />} />
         <Route path="/accesos-rapidos/politicas-sig" element={<SigPolicies />} />
         <Route path="/accesos-rapidos/alcance-sig" element={<SigScope />} />
