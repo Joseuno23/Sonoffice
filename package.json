@@ -1,0 +1,19 @@
+{
+  "name": "sonoffice-erp",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Sonoffice ERP — monorepo (apps/web React+Vite+TS+Tailwind · apps/api NestJS+TS)",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c magenta,cyan \"npm run dev -w @sonoffice/api\" \"npm run dev -w @sonoffice/web\"",
+    "dev:web": "npm run dev -w @sonoffice/web",
+    "dev:api": "npm run dev -w @sonoffice/api",
+    "build": "npm run build -w @sonoffice/api && npm run build -w @sonoffice/web",
+    "typecheck": "npm run typecheck -w @sonoffice/api && npm run typecheck -w @sonoffice/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}

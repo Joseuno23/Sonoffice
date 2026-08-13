@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---- Base resets (ported from the original prototype) ---- */
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; padding: 0; }
+body {
+  background: #eef0f3;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+::selection { background: rgba(8, 145, 178, .18); }
+input, button, select, textarea { font-family: inherit; }
+
+a { color: var(--brand, #0891b2); text-decoration: none; }
+a:hover { color: var(--fg, #0f172a); }
+
+/* ---- Scrollbars ---- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, .32);
+  border-radius: 20px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, .5);
+  background-clip: padding-box;
+}
+
+/* ---- Keyframes ---- */
+@keyframes scfade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes scpop { from { opacity: 0; transform: scale(.97) translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes scshim { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@keyframes scspin { to { transform: rotate(360deg); } }
+@keyframes scpulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
