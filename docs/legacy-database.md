@@ -34,6 +34,15 @@ Variables documentadas en `.env.example`:
 |-------|--------|-------|
 | Pendiente | No identificada todavía | Falta inventario controlado por módulo |
 
+## Tablas nuevas propuestas
+
+Se prepararon scripts SQL pendientes de aprobación y ejecución para crear tablas propias de la aplicación nueva:
+
+- `app_menus` y `app_role_menu_permissions` para menús y visibilidad por rol.
+- `app_actions` y `app_role_action_permissions` para acciones/botones de módulos funcionales fuera de Sistema.
+
+Estas tablas no reemplazan ni modifican `sys_menu`, `sys_button` ni `sys_roles_button`; quedan separadas de las tablas legacy compartidas y usan índices sin llaves foráneas por seguridad inicial. El rol 1 conserva acceso completo implícito en la aplicación, por lo que no requiere filas explícitas en `app_role_action_permissions`.
+
 ## Campos importantes
 
 | Módulo | Campos importantes | Estado |

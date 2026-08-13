@@ -7,6 +7,8 @@ No hay módulos funcionales migrados todavía. La única fila activa es infraest
 | Módulo | Estado | Branch | Backend | Frontend | Tests | Pendiente |
 |--------|--------|--------|---------|----------|-------|-----------|
 | Infraestructura | Base inicial disponible | Pendiente de confirmar | NestJS con `/api`, `DbService` y `GET /api/health/db` | React/Vite/TS/Tailwind base | Health DB validado manualmente | Definir estrategia de tests y primer módulo |
+| Menú/sidebar | Fundación SQL propuesta | Pendiente de confirmar | Tablas nuevas `app_menus` y `app_role_menu_permissions` pendientes de ejecución | Pendiente | SQL no ejecutado | Aprobar y ejecutar script antes de crear API/UI |
+| Permisos de acciones | Fundación SQL propuesta | Pendiente de confirmar | Tablas nuevas `app_actions` y `app_role_action_permissions` pendientes de ejecución | Pendiente | SQL no ejecutado | Aprobar y ejecutar script antes de proteger acciones mutables |
 | Módulos funcionales | No iniciados | No aplica | Pendiente | Pendiente | Pendiente | Inventariar módulos legacy |
 
 ## Reglas de actualización

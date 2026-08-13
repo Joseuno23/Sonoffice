@@ -43,7 +43,7 @@ export default function Login() {
       }
 
       if (response.data?.status === 'success') {
-        login(response.data.user);
+        login(response.data.user, response.data.token);
         navigate('/');
         return;
       }

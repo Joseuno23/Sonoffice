@@ -19,12 +19,15 @@ export interface AuthUser {
   name: string;
   roleId: number;
   role: string;
+  avatar: string | null;
+  avatarUrl: string | null;
 }
 
 export interface AuthSessionContext extends AuthUser {
   userMedios: number | null;
   email: string | null;
   avatar: string | null;
+  avatarUrl: string | null;
   skin: string | null;
   layout: string | null;
   sidebar: string | null;
@@ -39,6 +42,7 @@ export type LoginResponse =
       success: true;
       data: {
         status: 'success';
+        token: string;
         user: AuthUser;
         session: AuthSessionContext;
       };

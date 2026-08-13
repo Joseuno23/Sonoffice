@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from '../lib/icons';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../auth/AuthContext';
 import { initials } from '../lib/format';
+import { assetUrl } from '../services/api';
 
 const NOTIFS = [
   { title: 'Omar Salas cambió un estado', text: 'OP-2026-1042 → CERRADA', time: 'Hace 8 min', dot: '#10b981' },
@@ -14,6 +15,25 @@ const iconBtn = {
   width: 38, height: 38, flex: 'none', border: '1px solid var(--border,#e5e8ec)', background: 'var(--surface,#fff)',
   borderRadius: 10, color: 'var(--muted,#64748b)', cursor: 'pointer', display: 'grid', placeItems: 'center', transition: 'all .14s',
 };
+
+const userAvatarUrl = (user) => {
+  if (user?.avatarUrl) return assetUrl(user.avatarUrl);
+  if (user?.avatar && /^[A-Za-z0-9._-]+$/.test(user.avatar)) return assetUrl(`/uploads/avatars/${encodeURIComponent(user.avatar)}`);
+  return null;
+};
+
+function UserAvatar({ user }) {
+  const src = userAvatarUrl(user);
+  const [broken, setBroken] = useState(false);
+
+  useEffect(() => { setBroken(false); }, [src]);
+
+  return (
+    <span style={{ width: 30, height: 30, borderRadius: 8, background: 'linear-gradient(135deg,#22d3ee,#0891b2)', color: '#04121a', fontWeight: 800, fontSize: 12, display: 'grid', placeItems: 'center', overflow: 'hidden', flex: 'none' }}>
+      {src && !broken ? <img src={src} alt={`Avatar de ${user?.name || 'usuario'}`} onError={() => setBroken(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(user?.name || 'Jose Narvaez')}
+    </span>
+  );
+}
 
 export default function Topbar({ onToggleCollapse }) {
   const { dark, toggleDark, toggleSidebarTheme } = useTheme();
@@ -82,7 +102,7 @@ export default function Topbar({ onToggleCollapse }) {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '4px 10px 4px 4px', border: '1px solid var(--border,#e5e8ec)', borderRadius: 11, cursor: 'pointer', transition: 'all .14s' }}>
-        <span style={{ width: 30, height: 30, borderRadius: 8, background: 'linear-gradient(135deg,#22d3ee,#0891b2)', color: '#04121a', fontWeight: 800, fontSize: 12, display: 'grid', placeItems: 'center' }}>{initials(user?.name || 'Jose Narvaez')}</span>
+        <UserAvatar user={user} />
         <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg,#0f172a)' }}>{user?.name || 'Jose Narvaez'}</span>
         <Icon d="M6 9l6 6 6-6" size={14} sw={2} stroke="var(--faint,#94a3b8)" />
       </div>

@@ -4,6 +4,10 @@ import { OrdersModule } from './orders/orders.module';
 import { UsersModule } from './users/users.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { AuthModule } from './auth/auth.module';
+import { MenusModule } from './menus/menus.module';
+import { RolesModule } from './roles/roles.module';
+import { SystemUsersModule } from './system-users/system-users.module';
+import { HelpdeskModule } from './helpdesk/helpdesk.module';
 import { HealthController } from './health.controller';
 import databaseConfig from './config/database.config';
 import emailConfig from './config/email.config';
@@ -21,6 +25,10 @@ import { DbModule } from './db/db.module';
     UsersModule,
     DashboardModule,
     AuthModule,
+    MenusModule,
+    RolesModule,
+    SystemUsersModule,
+    HelpdeskModule,
   ],
   controllers: [HealthController],
 })

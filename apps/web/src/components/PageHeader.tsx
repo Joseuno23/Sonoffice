@@ -1,7 +1,21 @@
 import { Icon } from '../lib/icons';
 
+type PageAction = {
+  label: string;
+  icon?: string;
+  onClick: () => void;
+};
+
+type PageHeaderProps = {
+  crumb: string;
+  title: string;
+  sub?: string;
+  primary?: PageAction;
+  secondary?: PageAction;
+};
+
 // Page header with breadcrumb, title, optional subtitle and action buttons.
-export default function PageHeader({ crumb, title, sub, primary, secondary }) {
+export default function PageHeader({ crumb, title, sub, primary, secondary }: PageHeaderProps) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap', marginBottom: 22 }}>
       <div>

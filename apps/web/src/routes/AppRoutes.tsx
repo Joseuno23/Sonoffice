@@ -7,7 +7,15 @@ import OrdersList from '../pages/OrdersList';
 import OrderDetail from '../pages/OrderDetail';
 import OrderForm from '../pages/OrderForm';
 import Settings from '../pages/Settings';
+import SystemMenus from '../pages/SystemMenus';
+import SystemRoles from '../pages/SystemRoles';
+import SystemUsers from '../pages/SystemUsers';
 import ComingSoon from '../pages/ComingSoon';
+import CodeOfEthics from '../pages/CodeOfEthics';
+import SigPolicies from '../pages/SigPolicies';
+import SigScope from '../pages/SigScope';
+import InternalRegulation from '../pages/InternalRegulation';
+import Helpdesk from '../pages/Helpdesk';
 
 function RequireAuth({ children }) {
   const { user } = useAuth();
@@ -45,7 +53,14 @@ export default function AppRoutes() {
         <Route path="/tiempos" element={<ComingSoon />} />
         <Route path="/activos" element={<ComingSoon />} />
         <Route path="/sistema" element={<ComingSoon />} />
-        <Route path="/helpdesk" element={<ComingSoon />} />
+        <Route path="/system/menus" element={<SystemMenus />} />
+        <Route path="/system/roles" element={<SystemRoles />} />
+        <Route path="/system/users" element={<SystemUsers />} />
+        <Route path="/helpdesk" element={<Helpdesk />} />
+        <Route path="/accesos-rapidos/codigo-etica-conducta" element={<CodeOfEthics />} />
+        <Route path="/accesos-rapidos/politicas-sig" element={<SigPolicies />} />
+        <Route path="/accesos-rapidos/alcance-sig" element={<SigScope />} />
+        <Route path="/accesos-rapidos/reglamento-interno" element={<InternalRegulation />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
 import { AuthRepository, LegacyLoginUserRow } from './auth.repository';
+import { AuthTokenService } from './auth-token.service';
 import {
   ChangeRequiredPasswordRequest,
   ChangeRequiredPasswordResponse,
@@ -50,6 +51,7 @@ export class AuthService {
   constructor(
     private readonly authRepository: AuthRepository,
     private readonly passwordRecoveryEmailService: PasswordRecoveryEmailService,
+    private readonly authTokenService: AuthTokenService,
   ) {}
 
   async login(body: LoginRequest): Promise<LoginResponse> {
@@ -78,16 +80,20 @@ export class AuthService {
 
       const timesheets = await this.authRepository.hasTimesheets(user.id_users);
       const sessionContext = this.toSessionContext(user, timesheets);
+      const token = this.authTokenService.sign({ id: sessionContext.id, roleId: sessionContext.roleId });
 
       return {
         success: true,
         data: {
           status: 'success',
+          token,
           user: {
             id: sessionContext.id,
             name: sessionContext.name,
             roleId: sessionContext.roleId,
             role: sessionContext.role,
+            avatar: sessionContext.avatar,
+            avatarUrl: sessionContext.avatarUrl,
           },
           session: sessionContext,
         },
@@ -356,6 +362,7 @@ export class AuthService {
       role: user.description,
       email: user.email,
       avatar: user.avatar,
+      avatarUrl: this.toAvatarUrl(user.avatar),
       skin: user.skin,
       layout: user.layout,
       sidebar: user.sidebar,
@@ -364,5 +371,10 @@ export class AuthService {
       timesheets,
       google: false,
     };
+  }
+
+  private toAvatarUrl(avatar: string | null): string | null {
+    if (!avatar || !/^[A-Za-z0-9._-]+$/.test(avatar)) return null;
+    return `/uploads/avatars/${encodeURIComponent(avatar)}`;
   }
 }

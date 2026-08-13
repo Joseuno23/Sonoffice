@@ -48,6 +48,7 @@ Un módulo legacy solo puede retirarse cuando:
 | API nueva | Base NestJS disponible |
 | DB | Conexión MariaDB validada localmente |
 | Health DB | `GET /api/health/db` validado |
+| Permisos de acciones | Fundación SQL preparada para módulos funcionales fuera de Sistema; pendiente de aprobación y ejecución |
 | Módulos funcionales | Ninguno iniciado |
 
 ## Próximo paso recomendado
