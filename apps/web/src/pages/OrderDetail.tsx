@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Icon } from '../lib/icons';
 import { useTheme } from '../theme/ThemeContext';
@@ -7,7 +7,7 @@ import { DetailSkeleton } from '../components/Skeletons';
 import { api } from '../services/api';
 
 const card = { background: 'var(--surface,#fff)', border: '1px solid var(--border,#e6e8ec)', borderRadius: 16, boxShadow: 'var(--shadow)' };
-const thCell = { textAlign: 'left', padding: '0 0 12px', fontSize: 11, fontWeight: 600, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--faint,#94a3b8)', borderBottom: '1px solid var(--border,#e6e8ec)' };
+const thCell: CSSProperties = { textAlign: 'left', padding: '0 0 12px', fontSize: 11, fontWeight: 600, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--faint,#94a3b8)', borderBottom: '1px solid var(--border,#e6e8ec)' };
 const wrapBlue = { width: 32, height: 32, borderRadius: 9, display: 'grid', placeItems: 'center', flex: 'none', background: '#eff4ff', color: '#2563eb' };
 const wrapGreen = { ...wrapBlue, background: '#dcfce7', color: '#16a34a' };
 const wrapAmber = { ...wrapBlue, background: '#fef3c7', color: '#d97706' };

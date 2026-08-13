@@ -9,7 +9,7 @@ export default function DonutChart() {
     ['Pendiente', 9, '#f59e0b'],
     ['Cerrado', 42, '#94a3b8'],
     ['Anulado', 5, '#f43f5e'],
-  ];
+  ] as const;
   const total = segs.reduce((a, s) => a + s[1], 0);
   const r = 52, C = 2 * Math.PI * r, cx = 70, cy = 70;
   let off = 0;

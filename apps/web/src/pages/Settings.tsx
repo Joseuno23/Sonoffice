@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { Icon } from '../lib/icons';
 import { initials } from '../lib/format';
 import PageHeader from '../components/PageHeader';
@@ -7,8 +7,8 @@ import { TableSkeleton } from '../components/Skeletons';
 import UserModal from '../components/UserModal';
 import { api } from '../services/api';
 
-const card = { background: 'var(--surface,#fff)', border: '1px solid var(--border,#e5e8ec)', borderRadius: 16, boxShadow: 'var(--shadow)', overflow: 'hidden' };
-const th = { textAlign: 'left', padding: '11px 16px', fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted,#64748b)', borderBottom: '1px solid var(--border,#e5e8ec)' };
+const card: CSSProperties = { background: 'var(--surface,#fff)', border: '1px solid var(--border,#e5e8ec)', borderRadius: 16, boxShadow: 'var(--shadow)', overflow: 'hidden' };
+const th: CSSProperties = { textAlign: 'left', padding: '11px 16px', fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted,#64748b)', borderBottom: '1px solid var(--border,#e5e8ec)' };
 const PER = 8;
 const GRADS = ['linear-gradient(135deg,#22d3ee,#0891b2)', 'linear-gradient(135deg,#a78bfa,#7c3aed)', 'linear-gradient(135deg,#34d399,#059669)', 'linear-gradient(135deg,#fbbf24,#d97706)', 'linear-gradient(135deg,#fb7185,#e11d48)'];
 const ROLE_COLORS = { Administrador: ['#7c3aed', 'rgba(124,58,237,.12)'], Editor: ['#0369a1', 'rgba(56,189,248,.14)'], Operador: ['#047857', 'rgba(16,185,129,.14)'], Consulta: ['#475569', 'rgba(148,163,184,.16)'] };

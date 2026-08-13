@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '../lib/icons';
 import { useTheme } from '../theme/ThemeContext';
@@ -11,7 +11,7 @@ import { api } from '../services/api';
 
 const card = { background: 'var(--surface,#fff)', border: '1px solid var(--border,#e5e8ec)', borderRadius: 16, boxShadow: 'var(--shadow)', overflow: 'hidden' };
 const CHIPS = ['Todos', 'Activo', 'En proceso', 'Pendiente', 'Cerrado', 'Anulado'];
-const COLS = [['id', 'ID', 'left', 1], ['cliente', 'Cliente', 'left', 1], ['ref', 'Referencia', 'left', 1], ['resp', 'Responsable', 'left', 0], ['estado', 'Estado', 'left', 1], ['avance', 'Avance', 'left', 1], ['valor', 'Valor', 'right', 1], ['', '', 'right', 0]];
+const COLS = [['id', 'ID', 'left', 1], ['cliente', 'Cliente', 'left', 1], ['ref', 'Referencia', 'left', 1], ['resp', 'Responsable', 'left', 0], ['estado', 'Estado', 'left', 1], ['avance', 'Avance', 'left', 1], ['valor', 'Valor', 'right', 1], ['', '', 'right', 0]] as const;
 const ORDER = { Activo: 0, 'En proceso': 1, Pendiente: 2, Cerrado: 3, Anulado: 4 };
 const PER = 8;
 
@@ -71,7 +71,7 @@ export default function OrdersList() {
     ? { height: 34, padding: '0 13px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', transition: 'all .14s', background: 'var(--primary,#0f172a)', color: 'var(--primary-fg,#fff)', border: '1px solid var(--primary,#0f172a)' }
     : { height: 34, padding: '0 13px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', transition: 'all .14s', background: 'var(--surface,#fff)', color: 'var(--fg-2,#334155)', border: '1px solid var(--border,#e5e8ec)' };
 
-  const menuItemStyle = (color) => ({ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 11px', border: 'none', background: 'transparent', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', textAlign: 'left', transition: 'background .12s', color });
+  const menuItemStyle = (color): CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 11px', border: 'none', background: 'transparent', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', textAlign: 'left', transition: 'background .12s', color });
 
   const anular = () => {
     setAll((list) => list.map((o) => (o.id === menu.id ? { ...o, estado: 'Anulado', avance: 0 } : o)));
