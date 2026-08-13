@@ -64,13 +64,6 @@ const QUICK_ACCESS_SECTION = {
   ],
 };
 
-const HELPDESK_SECTION = {
-  label: 'Gestión',
-  items: [
-    { t: 'Mesa de ayuda', icon: I.mail, to: '/helpdesk' },
-  ],
-};
-
 const iconFor = (name) => I[name] || I.settings;
 
 const userAvatarUrl = (user) => {
@@ -100,8 +93,6 @@ const toSections = (menuItems) => menuItems.map((item) => ({
 const hasActiveChild = (children, isActive) => children.some((child) => (
   child.route ? isActive(child.route) : hasActiveChild(child.children || [], isActive)
 ));
-
-const sectionHasRoute = (sections, route) => sections.some((section) => section.items.some((item) => item.to === route || item.route === route || sectionHasRoute([{ items: item.children || [] }], route)));
 
 export default function Sidebar({ collapsed }) {
   const location = useLocation();
@@ -143,7 +134,6 @@ export default function Sidebar({ collapsed }) {
   const menuSections = user?.roleId && !menuLoadFailed ? toSections(dynamicMenu || []) : NAV;
   const sections = [
     ...menuSections,
-    ...(sectionHasRoute(menuSections, '/helpdesk') ? [] : [HELPDESK_SECTION]),
     QUICK_ACCESS_SECTION,
   ];
 

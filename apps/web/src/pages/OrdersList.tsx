@@ -155,8 +155,8 @@ export default function OrdersList() {
                       </td>
                       <td style={{ padding: '13px 16px', textAlign: 'right', fontFamily: 'JetBrains Mono,monospace', fontSize: 13, fontWeight: 600, color: 'var(--fg,#0f172a)', whiteSpace: 'nowrap' }}>{fmtMoney(o.valor)}</td>
                       <td style={{ padding: '13px 16px', textAlign: 'right' }}>
-                        <button onClick={(e) => { e.stopPropagation(); const rc = e.currentTarget.getBoundingClientRect(); setMenu({ id: o.id, x: rc.right, y: rc.bottom }); }} style={{ width: 30, height: 30, border: 'none', background: 'transparent', borderRadius: 8, color: 'var(--faint,#94a3b8)', cursor: 'pointer', display: 'inline-grid', placeItems: 'center', transition: 'all .14s' }}>
-                          <Icon d="M12 6h.01M12 12h.01M12 18h.01" size={17} sw={2} />
+                        <button onClick={(e) => { e.stopPropagation(); const rc = e.currentTarget.getBoundingClientRect(); setMenu({ id: o.id, x: rc.right, y: rc.bottom }); }} title="Acciones" aria-label="Acciones" style={{ width: 32, height: 32, border: '1px solid var(--border,#e5e8ec)', background: 'var(--surface,#fff)', borderRadius: 8, color: 'var(--muted,#64748b)', cursor: 'pointer', display: 'inline-grid', placeItems: 'center', transition: 'all .14s' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2,#f7f8fa)'; e.currentTarget.style.color = 'var(--fg,#0f172a)'; e.currentTarget.style.borderColor = 'var(--border-strong,#d5d9e0)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface,#fff)'; e.currentTarget.style.color = 'var(--muted,#64748b)'; e.currentTarget.style.borderColor = 'var(--border,#e5e8ec)'; }}>
+                          <Icon d="M12 6h.01M12 12h.01M12 18h.01" size={18} sw={2.5} />
                         </button>
                       </td>
                     </tr>
