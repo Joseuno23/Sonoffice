@@ -10,3 +10,10 @@ uploads/
 .DS_Store
 .vscode/
 .idea/
+
+# Legacy ERP (CodeIgniter) — solo referencia de consulta, no se versiona en el repo nuevo
+Erp/
+
+# Tooling SDD y archivos sueltos no versionables
+.atl/
+support.js
