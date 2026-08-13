@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { I, Icon } from '../lib/icons';
 import { useAuth } from '../auth/AuthContext';
@@ -41,26 +41,10 @@ const NAV = [
 const QUICK_ACCESS_SECTION = {
   label: 'Accesos rápidos',
   items: [
-    {
-      t: 'Cod. Ética y Conducta',
-      icon: I.file,
-      to: '/accesos-rapidos/codigo-etica-conducta',
-    },
-    {
-      t: 'Políticas del SIG.',
-      icon: I.file,
-      to: '/accesos-rapidos/politicas-sig',
-    },
-    {
-      t: 'Alcance del SIG.',
-      icon: I.file,
-      to: '/accesos-rapidos/alcance-sig',
-    },
-    {
-      t: 'Reglamento Interno.',
-      icon: I.file,
-      to: '/accesos-rapidos/reglamento-interno',
-    },
+    { t: 'Cod. Ética y Conducta', icon: I.file, to: '/accesos-rapidos/codigo-etica-conducta' },
+    { t: 'Políticas del SIG.', icon: I.file, to: '/accesos-rapidos/politicas-sig' },
+    { t: 'Alcance del SIG.', icon: I.file, to: '/accesos-rapidos/alcance-sig' },
+    { t: 'Reglamento Interno.', icon: I.file, to: '/accesos-rapidos/reglamento-interno' },
   ],
 };
 
@@ -85,14 +69,72 @@ function UserAvatar({ user, size = 36, radius = 10 }) {
   );
 }
 
-const toSections = (menuItems) => menuItems.map((item) => ({
-  label: item.label,
-  items: item.route ? [item] : item.children || [],
-})).filter((section) => section.items.length > 0);
+// --- Normalización a nodos { key, label, icon, to, badge, children } ---
+// Soporta tanto el fallback NAV (items con t/to/icon) como el menú dinámico de BD (label/route/children).
+const normalizeNode = (item) => {
+  const to = item.to ?? item.route ?? null;
+  const rawChildren = item.children ?? [];
+  const children = rawChildren.map(normalizeNode);
+  return {
+    key: item.code ?? item.t ?? item.label ?? item.id,
+    label: item.t ?? item.label,
+    icon: item.t ? item.icon : iconFor(item.icon),
+    to,
+    badge: item.badge ?? null,
+    children,
+  };
+};
 
-const hasActiveChild = (children, isActive) => children.some((child) => (
-  child.route ? isActive(child.route) : hasActiveChild(child.children || [], isActive)
-));
+// Convierte el árbol dinámico de BD en secciones raíz (cada raíz es una sección con sus hijos).
+const dynamicToSections = (menuItems) => menuItems.map((item) => {
+  const node = normalizeNode(item);
+  return { label: node.label, items: node.to ? [node] : node.children };
+}).filter((section) => section.items.length > 0);
+
+// Convierte el fallback NAV en secciones normalizadas.
+const navToSections = (nav) => nav.map((section) => ({
+  label: section.label,
+  items: section.items.map(normalizeNode),
+}));
+
+const hasRoute = (node, path) => {
+  if (node.to && (node.to === path || (node.to !== '/' && path.startsWith(node.to + '/')))) return true;
+  return node.children.some((child) => hasRoute(child, path));
+};
+
+// Busca la ruta de drill-down (pila de nodos padre) que contiene la ruta activa.
+const findActiveStack = (sections, path) => {
+  const walk = (nodes, trail) => {
+    for (const node of nodes) {
+      if (node.children.length > 0) {
+        if (node.to === path) return trail;
+        const found = walk(node.children, [...trail, node]);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  for (const section of sections) {
+    const found = walk(section.items, []);
+    if (found && found.some((n) => hasRoute(n, path))) return found;
+  }
+  // Si la ruta activa está dentro de una rama, devolver la pila hasta el nodo padre inmediato.
+  const deep = (nodes, trail) => {
+    for (const node of nodes) {
+      if (node.to === path) return trail;
+      if (node.children.length > 0) {
+        const found = deep(node.children, [...trail, node]);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  for (const section of sections) {
+    const found = deep(section.items, []);
+    if (found) return found;
+  }
+  return [];
+};
 
 export default function Sidebar({ collapsed }) {
   const location = useLocation();
@@ -100,6 +142,7 @@ export default function Sidebar({ collapsed }) {
   const { user, logout } = useAuth();
   const [dynamicMenu, setDynamicMenu] = useState(null);
   const [menuLoadFailed, setMenuLoadFailed] = useState(false);
+  const [stack, setStack] = useState([]); // pila de nodos padre para el drill-down
   const showLabels = !collapsed;
   const path = location.pathname;
 
@@ -131,15 +174,23 @@ export default function Sidebar({ collapsed }) {
     };
   }, [user?.id]);
 
-  const menuSections = user?.roleId && !menuLoadFailed ? toSections(dynamicMenu || []) : NAV;
-  const sections = [
-    ...menuSections,
-    QUICK_ACCESS_SECTION,
-  ];
+  const menuSections = useMemo(() => (
+    user?.roleId && !menuLoadFailed
+      ? dynamicToSections(dynamicMenu || [])
+      : navToSections(NAV)
+  ), [user?.roleId, menuLoadFailed, dynamicMenu]);
+
+  const quickSection = useMemo(() => navToSections([QUICK_ACCESS_SECTION])[0], []);
+
+  // Al cambiar de ruta, alinear el drill-down con la rama activa (deep-link friendly).
+  useEffect(() => {
+    setStack(findActiveStack(menuSections, path));
+  }, [menuSections, path]);
 
   const isActive = (to) => {
+    if (!to) return false;
     if (to === '/') return path === '/';
-    if (to === '/ordenes') return path.startsWith('/ordenes');
+    if (to === '/ordenes') return path.startsWith('/ordenes') && !path.startsWith('/ordenes-costo');
     return path === to || path.startsWith(to + '/');
   };
 
@@ -150,48 +201,56 @@ export default function Sidebar({ collapsed }) {
     fontSize: 10.5, fontWeight: 700, display: 'grid', placeItems: 'center', fontFamily: 'JetBrains Mono,monospace',
   });
 
-  const renderMenuItem = (item, level = 0) => {
-    const to = item.to || item.route;
-    const label = item.t || item.label;
-    const children = item.children || [];
-    const active = to ? isActive(to) : hasActiveChild(children, isActive);
-    const icon = item.t ? item.icon : iconFor(item.icon);
-    const paddingLeft = 10 + level * 14;
+  const rowStyle = (active) => ({
+    display: 'flex', alignItems: 'center', gap: 11, padding: '9px 10px', borderRadius: 10,
+    textDecoration: 'none', fontSize: 13.5, fontWeight: active ? 600 : 500, marginBottom: 2,
+    transition: 'background .14s,color .14s', cursor: 'pointer',
+    background: active ? 'var(--sb-active-bg)' : 'transparent',
+    color: active ? 'var(--sb-active-fg)' : 'var(--sb-muted)',
+  });
+
+  const hoverIn = (e, active) => { if (!active) { e.currentTarget.style.background = 'var(--sb-hover)'; e.currentTarget.style.color = 'var(--sb-fg)'; } };
+  const hoverOut = (e, active) => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--sb-muted)'; } };
+
+  // Renderiza una fila de menú. Si tiene hijos -> drill-down (chevron →). Si tiene ruta -> navega.
+  const renderNode = (node) => {
+    const hasChildren = node.children.length > 0;
+    const active = hasChildren ? hasRoute(node, path) : isActive(node.to);
+
+    const onClick = (e) => {
+      e.preventDefault();
+      if (hasChildren) {
+        setStack((prev) => [...prev, node]);
+      } else if (node.to) {
+        navigate(node.to);
+      }
+    };
 
     return (
-      <div key={item.code || item.t || item.id}>
-        <a
-          href={to || '#'}
-          title={label}
-          onClick={(e) => {
-            e.preventDefault();
-            if (to) navigate(to);
-          }}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 11, padding: `9px 10px 9px ${paddingLeft}px`, borderRadius: 10,
-            textDecoration: 'none', fontSize: 13.5, fontWeight: active ? 600 : 500, marginBottom: 2, position: 'relative',
-            transition: 'background .14s,color .14s', cursor: to ? 'pointer' : 'default',
-            background: active ? 'var(--sb-active-bg)' : 'transparent',
-            color: active ? 'var(--sb-active-fg)' : 'var(--sb-muted)',
-          }}
-          onMouseEnter={(e) => { if (!active && to) { e.currentTarget.style.background = 'var(--sb-hover)'; e.currentTarget.style.color = 'var(--sb-fg)'; } }}
-          onMouseLeave={(e) => { if (!active && to) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--sb-muted)'; } }}
-        >
-          {level === 0 && (
-            <span style={{ display: 'flex', flex: 'none' }}>
-              <Icon d={icon} size={18} />
-            </span>
-          )}
-          {level > 0 && showLabels && <span style={{ width: 18, flex: 'none' }} />}
-          {showLabels && (
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{label}</span>
-          )}
-          {item.badge && showLabels && <span style={badgeStyle(active)}>{item.badge}</span>}
-        </a>
-        {showLabels && children.map((child) => renderMenuItem(child, level + 1))}
-      </div>
+      <a
+        key={node.key}
+        href={node.to || '#'}
+        title={node.label}
+        onClick={onClick}
+        style={rowStyle(active)}
+        onMouseEnter={(e) => hoverIn(e, active)}
+        onMouseLeave={(e) => hoverOut(e, active)}
+      >
+        <span style={{ display: 'flex', flex: 'none' }}>
+          <Icon d={node.icon} size={18} />
+        </span>
+        {showLabels && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{node.label}</span>}
+        {showLabels && node.badge && <span style={badgeStyle(active)}>{node.badge}</span>}
+        {showLabels && hasChildren && (
+          <span style={{ display: 'flex', flex: 'none', opacity: 0.6 }}>
+            <Icon d="M9 18l6-6-6-6" size={15} sw={2} />
+          </span>
+        )}
+      </a>
     );
   };
+
+  const current = stack[stack.length - 1] || null;
 
   return (
     <aside
@@ -219,16 +278,46 @@ export default function Sidebar({ collapsed }) {
       </div>
 
       <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '12px 12px 20px' }}>
-        {sections.map((sec) => (
-          <div key={sec.label} style={{ marginBottom: 6 }}>
-            {showLabels && (
-              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--sb-section)', padding: '14px 10px 7px' }}>
-                {sec.label}
+        {current ? (
+          // --- Vista drill-down: botón volver + hijos del nodo actual ---
+          <>
+            <a
+              href="#"
+              title="Volver"
+              onClick={(e) => { e.preventDefault(); setStack((prev) => prev.slice(0, -1)); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 10px', borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 600, color: 'var(--sb-fg)', cursor: 'pointer', marginBottom: 4 }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--sb-hover)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              <Icon d="M15 18l-6-6 6-6" size={16} sw={2} />
+              {showLabels && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{current.label}</span>}
+            </a>
+            <div style={{ height: 1, background: 'var(--sb-border)', margin: '2px 4px 8px' }} />
+            {current.children.map((child) => renderNode(child))}
+          </>
+        ) : (
+          // --- Vista raíz: secciones + accesos rápidos ---
+          <>
+            {menuSections.map((sec) => (
+              <div key={sec.label} style={{ marginBottom: 6 }}>
+                {showLabels && (
+                  <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--sb-section)', padding: '14px 10px 7px' }}>
+                    {sec.label}
+                  </div>
+                )}
+                {sec.items.map((item) => renderNode(item))}
               </div>
-            )}
-            {sec.items.map((item) => renderMenuItem(item))}
-          </div>
-        ))}
+            ))}
+            <div style={{ marginBottom: 6 }}>
+              {showLabels && (
+                <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--sb-section)', padding: '14px 10px 7px' }}>
+                  {quickSection.label}
+                </div>
+              )}
+              {quickSection.items.map((item) => renderNode(item))}
+            </div>
+          </>
+        )}
       </nav>
 
       <div style={{ flex: 'none', padding: 12, borderTop: '1px solid var(--sb-border)' }}>
