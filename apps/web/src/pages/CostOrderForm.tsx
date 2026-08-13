@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '../lib/icons';
-import { fmtMoney } from '../lib/format';
+import { fmtMoneyFull } from '../lib/format';
 import { api } from '../services/api';
 
 const card: CSSProperties = { background: 'var(--surface,#fff)', border: '1px solid var(--border,#e6e8ec)', borderRadius: 16, boxShadow: 'var(--shadow)', padding: '22px 24px' };
@@ -214,7 +214,7 @@ export default function CostOrderForm() {
                   <input value={row.detalle} onChange={(e) => setLine(i, 'detalle', e.target.value)} placeholder={'Detalle ' + (i + 1)} style={{ ...inBase, flex: 1, minWidth: 0 }} />
                   <input value={row.cantidad} onChange={(e) => setLine(i, 'cantidad', e.target.value.replace(/[^0-9]/g, ''))} title="Cantidad" style={{ ...inBase, width: 74, flex: 'none', textAlign: 'center' }} />
                   <input value={row.valor} onChange={(e) => setLine(i, 'valor', e.target.value.replace(/[^0-9.]/g, ''))} placeholder="Valor" style={{ ...inBase, width: 130, flex: 'none' }} />
-                  <div style={{ width: 130, flex: 'none', fontSize: 13, fontWeight: 600, color: 'var(--fg-2,#334155)', textAlign: 'right', fontFamily: 'JetBrains Mono,monospace' }}>{fmtMoney(lineTotal(row))}</div>
+                  <div style={{ width: 130, flex: 'none', fontSize: 13, fontWeight: 600, color: 'var(--fg-2,#334155)', textAlign: 'right', fontFamily: 'JetBrains Mono,monospace' }}>{fmtMoneyFull(lineTotal(row))}</div>
                   <button onClick={() => removeLine(i)} style={{ width: 44, height: 44, flex: 'none', border: '1px solid var(--border-strong,#d5d9e0)', background: 'var(--surface,#fff)', borderRadius: 10, color: '#ef4444', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
                     <Icon d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" size={16} sw={1.9} />
                   </button>
@@ -244,12 +244,12 @@ export default function CostOrderForm() {
               {[['Valor', valor], ['Descuento', -descuento], ['IVA', iva]].map(([k, v]) => (
                 <div key={k as string} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--fg-2,#334155)' }}>
                   <span>{k}</span>
-                  <span style={{ fontFamily: 'JetBrains Mono,monospace', fontWeight: 600 }}>{fmtMoney(v as number)}</span>
+                  <span style={{ fontFamily: 'JetBrains Mono,monospace', fontWeight: 600 }}>{fmtMoneyFull(v as number)}</span>
                 </div>
               ))}
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10, borderTop: '1px solid var(--border,#e5e8ec)', fontSize: 15, fontWeight: 800, color: 'var(--fg,#0f172a)' }}>
                 <span>Total</span>
-                <span style={{ fontFamily: 'JetBrains Mono,monospace' }}>{fmtMoney(total)}</span>
+                <span style={{ fontFamily: 'JetBrains Mono,monospace' }}>{fmtMoneyFull(total)}</span>
               </div>
             </div>
           </div>
