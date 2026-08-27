@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import Badge from '../components/Badge';
+import ConfirmDialog from '../components/ConfirmDialog';
 import PageHeader from '../components/PageHeader';
 import Pagination from '../components/Pagination';
 import { useAuth } from '../auth/AuthContext';
@@ -87,6 +88,8 @@ export default function SystemUsers() {
   const [status, setStatus] = useState('Activos');
   const [page, setPage] = useState(1);
   const [userAction, setUserAction] = useState(null);
+  const [resetConfirm, setResetConfirm] = useState(null);
+  const [resettingPassword, setResettingPassword] = useState(null);
 
   const orderedUsers = useMemo(() => {
     let rows = [...users];
@@ -215,8 +218,8 @@ export default function SystemUsers() {
   };
 
   const resetPassword = (user) => {
-    setUserAction(null);
-    if (!window.confirm(`¿Restablecer la contraseña de ${user.name}? La contraseña temporal será la definida por el sistema y deberá cambiarla al ingresar.`)) return;
+    if (resettingPassword !== null) return;
+    setResettingPassword(user.id);
     setMessage(null);
     api.resetSystemUserPassword(user.id)
       .then((response) => {
@@ -226,7 +229,8 @@ export default function SystemUsers() {
         }
         setMessage({ type: 'success', text: response?.message || 'Contraseña restablecida correctamente.' });
       })
-      .catch(() => setMessage({ type: 'error', text: 'No se pudo restablecer la contraseña.' }));
+      .catch(() => setMessage({ type: 'error', text: 'No se pudo restablecer la contraseña.' }))
+      .finally(() => { setResettingPassword(null); setResetConfirm(null); });
   };
 
   const field = (key, value) => setForm((current) => ({ ...current, [key]: value }));
@@ -278,7 +282,7 @@ export default function SystemUsers() {
             </div>
             {userAction && selectedUser && <><div onClick={() => setUserAction(null)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} /><div style={{ position: 'fixed', top: userAction.y + 6, right: window.innerWidth - userAction.x, zIndex: 41, background: 'var(--surface,#fff)', border: '1px solid var(--border,#e5e8ec)', borderRadius: 12, boxShadow: 'var(--shadow-lg,0 16px 40px -14px rgba(15,23,42,.2))', padding: 6, minWidth: 210, animation: 'scpop .16s ease' }}>
               <button onClick={() => { setUserAction(null); openEdit(selectedUser); }} style={menuItemStyle('var(--fg-2,#334155)')}><Icon d={['M12 20h9', 'M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z']} size={16} sw={1.8} />Editar</button>
-              <button onClick={() => resetPassword(selectedUser)} style={menuItemStyle('#b45309')}><Icon d="M15 7a2 2 0 1 1 2 2l-7 7H7v-3zM9 14l2 2" size={16} sw={1.8} stroke="#b45309" />Restablecer contraseña</button>
+              <button onClick={() => { setUserAction(null); setResetConfirm(selectedUser); }} style={menuItemStyle('#b45309')}><Icon d="M15 7a2 2 0 1 1 2 2l-7 7H7v-3zM9 14l2 2" size={16} sw={1.8} stroke="#b45309" />Restablecer contraseña</button>
               <button onClick={() => toggleStatus(selectedUser)} style={menuItemStyle(selectedUser.isActive ? '#b45309' : '#047857')}><Icon d={selectedUser.isActive ? 'M12 6v6l4 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z' : 'M20 6 9 17l-5-5'} size={16} sw={1.8} stroke={selectedUser.isActive ? '#b45309' : '#047857'} />{selectedUser.isActive ? 'Desactivar' : 'Activar'}</button>
             </div></>}
             <Pagination page={curPage} totalPages={totalPages} total={total} start={total ? (curPage - 1) * PER + 1 : 0} end={Math.min(curPage * PER, total)} onPage={setPage} label="usuarios" />
@@ -307,6 +311,19 @@ export default function SystemUsers() {
           <div style={{ padding: '15px 20px', borderTop: '1px solid var(--border,#e5e8ec)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}><button type="button" onClick={closeModal} style={{ height: 38, padding: '0 15px', border: '1px solid var(--border-strong,#d5d9e0)', background: 'var(--surface,#fff)', color: 'var(--fg-2,#334155)', borderRadius: 9, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Cancelar</button><button type="submit" disabled={saving} style={{ height: 38, padding: '0 17px', border: 'none', background: 'var(--primary,#0f172a)', color: 'var(--primary-fg,#fff)', borderRadius: 9, fontWeight: 800, fontSize: 13, cursor: saving ? 'wait' : 'pointer', opacity: saving ? .75 : 1 }}>{saving ? 'Guardando…' : 'Guardar'}</button></div>
         </form>
       </div>}
+
+      {resetConfirm && (
+        <ConfirmDialog
+          open={!!resetConfirm}
+          title="Restablecer contraseña"
+          description={`¿Restablecer la contraseña de ${resetConfirm.name}? La contraseña temporal será la definida por el sistema y deberá cambiarla al ingresar.`}
+          confirmLabel="Restablecer"
+          tone="warning"
+          loading={resettingPassword === resetConfirm.id}
+          onConfirm={() => resetPassword(resetConfirm)}
+          onCancel={() => setResetConfirm(null)}
+        />
+      )}
     </>
   );
 }
