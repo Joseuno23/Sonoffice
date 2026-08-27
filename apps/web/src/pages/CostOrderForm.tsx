@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { Icon } from '../lib/icons';
 import { fmtMoneyFull } from '../lib/format';
 import { api } from '../services/api';
@@ -10,7 +11,26 @@ const inBase: CSSProperties = { width: '100%', height: 44, padding: '0 13px', bo
 const btnGhost: CSSProperties = { height: 40, padding: '0 15px', border: '1px solid var(--border-strong,#d5d9e0)', background: 'var(--surface,#fff)', color: 'var(--fg-2,#334155)', borderRadius: 10, fontWeight: 600, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 };
 
 interface Option { id: number; label: string; }
-interface DetailLine { detalle: string; cantidad: string; valor: string; }
+interface DetailLine { idDetalle?: number; detalle: string; cantidad: string; valor: string; hasBudget?: boolean; budgetTipo?: number | null; budgetPpto?: number | null; }
+interface BudgetLine { idPpto: number; idDetallePpto: number; detalle: string; total: number; valorAsignadoOc: number; ordenCosto: number; disponible: number; cantidad?: string; asignado?: string; }
+
+const budgetTypes: Option[] = [
+  { id: 1, label: 'Aviso' },
+  { id: 2, label: 'Clasificado' },
+  { id: 3, label: 'Revista' },
+  { id: 4, label: 'Radio' },
+  { id: 5, label: 'Televisión' },
+  { id: 6, label: 'Externa' },
+  { id: 7, label: 'Interna' },
+  { id: 8, label: 'Publicidad Exterior' },
+  { id: 9, label: 'Impresos' },
+  { id: 10, label: 'Artículos Publicitarios' },
+];
+
+const budgetTypeLabel = (id?: number | null) => budgetTypes.find((t) => t.id === id)?.label.toLowerCase() || 'presupuesto';
+const budgetSourceTitle = (row: DetailLine) => row.hasBudget && row.budgetPpto
+  ? `Item tomado del presupuesto de ${budgetTypeLabel(row.budgetTipo)} #${row.budgetPpto}`
+  : 'Item tomado de presupuesto';
 
 // Select con búsqueda server-side (typeahead) para catálogos grandes (clientes 591, proveedores 4037).
 function SearchSelect({ value, label, placeholder, fetcher, onSelect }: {
@@ -85,9 +105,19 @@ export default function CostOrderForm() {
   const [productos, setProductos] = useState<Option[]>([]);
   const [idProducto, setIdProducto] = useState('');
   const [observacion, setObservacion] = useState('');
-  const [porcIva, setPorcIva] = useState('19');
+  const [porcIva, setPorcIva] = useState('');
   const [porcDescuento, setPorcDescuento] = useState('0');
   const [detalles, setDetalles] = useState<DetailLine[]>([{ detalle: '', cantidad: '1', valor: '' }]);
+  const [budgetTipo, setBudgetTipo] = useState('');
+  const [budgetPpto, setBudgetPpto] = useState('');
+  const [budgetLines, setBudgetLines] = useState<BudgetLine[]>([]);
+  const [budgetLoading, setBudgetLoading] = useState(false);
+  const [budgetSaving, setBudgetSaving] = useState<number | null>(null);
+  const [budgetSubmitted, setBudgetSubmitted] = useState(false);
+  const [deletingDetail, setDeletingDetail] = useState<number | null>(null);
+  const [permittedActions, setPermittedActions] = useState<string[]>([]);
+  const [finishing, setFinishing] = useState(false);
+  const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -110,14 +140,29 @@ export default function CostOrderForm() {
         setIdCampana(o.idCampana ? String(o.idCampana) : '');
         setIdProducto(o.idProducto ? String(o.idProducto) : '');
         setObservacion(o.observacion || '');
-        setPorcIva(String(o.porcIva ?? 19));
+        setPorcIva(o.porcIva === null || o.porcIva === undefined ? '' : String(o.porcIva));
         setPorcDescuento(String(o.porcDescuento ?? 0));
-        setDetalles(o.detalles.length ? o.detalles.map((d: any) => ({ detalle: d.detalle, cantidad: String(d.cantidad), valor: String(d.valor) })) : [{ detalle: '', cantidad: '1', valor: '' }]);
+        setDetalles(o.detalles.length ? o.detalles.map((d: any) => ({ idDetalle: d.idDetalle, detalle: d.detalle, cantidad: String(d.cantidad), valor: String(d.valor), hasBudget: !!d.hasBudget, budgetTipo: d.budgetTipo ?? null, budgetPpto: d.budgetPpto ?? null })) : [{ detalle: '', cantidad: '1', valor: '' }]);
+        setPermittedActions(o.permittedActions || []);
       })
       .catch(() => { if (live) setMessage({ type: 'error', text: 'No se pudo cargar la orden.' }); })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [id]);
+
+  // En creación, el IVA viene de sys_data_billing; edición conserva el valor guardado en la orden.
+  useEffect(() => {
+    if (isEdit) return;
+    let live = true;
+    api.getCostOrderDefaults()
+      .then((res) => {
+        if (!live) return;
+        if (res?.success) setPorcIva(res.data?.porcIva === null || res.data?.porcIva === undefined ? '' : String(res.data.porcIva));
+        else setMessage({ type: 'error', text: res?.message || 'No se pudo cargar el IVA configurado.' });
+      })
+      .catch(() => { if (live) setMessage({ type: 'error', text: 'No se pudo cargar el IVA configurado.' }); });
+    return () => { live = false; };
+  }, [isEdit]);
 
   // Cargar OPCIONES de servicios cuando cambia el tipo. (No resetea la selección: eso lo hace onChange.)
   useEffect(() => {
@@ -145,7 +190,29 @@ export default function CostOrderForm() {
   const setLine = (i: number, k: keyof DetailLine, v: string) =>
     setDetalles((list) => list.map((l, idx) => (idx === i ? { ...l, [k]: v } : l)));
   const addLine = () => setDetalles((list) => [...list, { detalle: '', cantidad: '1', valor: '' }]);
-  const removeLine = (i: number) => setDetalles((list) => { const arr = list.filter((_, idx) => idx !== i); return arr.length ? arr : [{ detalle: '', cantidad: '1', valor: '' }]; });
+  const refreshDetails = () => {
+    if (!isEdit) return;
+    api.getCostOrder(id).then((fresh) => {
+      if (!fresh?.success) return;
+      setDetalles(fresh.data.detalles.length ? fresh.data.detalles.map((d: any) => ({ idDetalle: d.idDetalle, detalle: d.detalle, cantidad: String(d.cantidad), valor: String(d.valor), hasBudget: !!d.hasBudget, budgetTipo: d.budgetTipo ?? null, budgetPpto: d.budgetPpto ?? null })) : [{ detalle: '', cantidad: '1', valor: '' }]);
+    }).catch(() => undefined);
+  };
+  const removeLine = (i: number) => {
+    const line = detalles[i];
+    if (line?.hasBudget && isEdit && line.idDetalle) {
+      setDeletingDetail(line.idDetalle);
+      setMessage(null);
+      api.deleteCostOrderDetail(id, line.idDetalle)
+        .then((res) => {
+          if (res?.success) { setMessage({ type: 'success', text: res.message || 'Detalle eliminado.' }); refreshDetails(); }
+          else setMessage({ type: 'error', text: res?.message || 'No se pudo eliminar el detalle.' });
+        })
+        .catch(() => setMessage({ type: 'error', text: 'No se pudo eliminar el detalle.' }))
+        .finally(() => setDeletingDetail(null));
+      return;
+    }
+    setDetalles((list) => { const arr = list.filter((_, idx) => idx !== i); return arr.length ? arr : [{ detalle: '', cantidad: '1', valor: '' }]; });
+  };
 
   const lineTotal = (l: DetailLine) => (Number(l.valor) || 0) * (Number(l.cantidad) || 0);
   const valor = useMemo(() => detalles.reduce((s, l) => s + lineTotal(l), 0), [detalles]);
@@ -153,8 +220,65 @@ export default function CostOrderForm() {
   const iva = (valor - descuento) * (Number(porcIva) || 0) / 100;
   const total = valor - descuento + iva;
 
-  const validDetails = detalles.filter((l) => l.detalle.trim() && Number(l.cantidad) > 0 && Number(l.valor) >= 0);
-  const canSubmit = editable && !!cliente && !!proveedor && !!idServicio && !!idCampana && !!idProducto && validDetails.length > 0;
+  const validDetails = detalles.filter((l) => !l.hasBudget && l.detalle.trim() && Number(l.cantidad) > 0 && Number(l.valor) >= 0);
+  const hasBudgetDetails = detalles.some((l) => l.hasBudget);
+  const canSubmit = editable && !!cliente && !!proveedor && !!idServicio && !!idCampana && !!idProducto && (validDetails.length > 0 || (isEdit && hasBudgetDetails));
+
+  const searchBudget = () => {
+    if (!isEdit || budgetLoading) return;
+    setBudgetSubmitted(true);
+    if (!budgetTipo) {
+      setBudgetLines([]);
+      setMessage({ type: 'error', text: 'Selecciona el tipo de presupuesto antes de buscar.' });
+      return;
+    }
+    if (!budgetPpto) {
+      setBudgetLines([]);
+      setMessage({ type: 'error', text: 'Ingresa el número de presupuesto antes de buscar.' });
+      return;
+    }
+    setBudgetLoading(true);
+    setMessage(null);
+    api.getCostOrderBudgetLines(id, budgetTipo, budgetPpto)
+      .then((res) => {
+        if (res?.success) {
+          const lines = res.data || [];
+          setBudgetLines(lines.map((l: BudgetLine) => ({ ...l, cantidad: '1', asignado: String(Number(l.disponible) > 0 ? l.disponible : 0) })));
+          if (lines.length === 0) setMessage({ type: 'error', text: res.message || 'No hay información disponible.' });
+        }
+        else { setBudgetLines([]); setMessage({ type: 'error', text: res?.message || 'No se pudo consultar el presupuesto.' }); }
+      })
+      .catch(() => { setBudgetLines([]); setMessage({ type: 'error', text: 'No se pudo consultar el presupuesto.' }); })
+      .finally(() => setBudgetLoading(false));
+  };
+
+  const setBudgetLine = (i: number, k: 'cantidad' | 'asignado', v: string) =>
+    setBudgetLines((list) => list.map((line, idx) => (idx === i ? { ...line, [k]: v } : line)));
+
+  const attachBudget = (line: BudgetLine) => {
+    if (!isEdit || budgetSaving || !budgetTipo || !budgetPpto) return;
+    setBudgetSaving(line.idDetallePpto);
+    setMessage(null);
+    api.attachCostOrderBudgetLine(id, {
+      tipo: Number(budgetTipo),
+      ppto: Number(budgetPpto),
+      idDetallePpto: line.idDetallePpto,
+      detalle: line.detalle,
+      cantidad: Number(line.cantidad) || 1,
+      valorAsignado: Number(line.asignado) || 0,
+    })
+      .then((res) => {
+        if (res?.success) {
+          setMessage({ type: 'success', text: res.message || 'Detalle de presupuesto agregado.' });
+          setBudgetLines([]);
+          refreshDetails();
+        } else {
+          setMessage({ type: 'error', text: res?.message || 'No se pudo agregar el presupuesto.' });
+        }
+      })
+      .catch(() => setMessage({ type: 'error', text: 'No se pudo agregar el presupuesto.' }))
+      .finally(() => setBudgetSaving(null));
+  };
 
   const submit = () => {
     if (!canSubmit || saving) return;
@@ -168,7 +292,7 @@ export default function CostOrderForm() {
       idProducto: Number(idProducto),
       tipo,
       observacion,
-      porcIva: Number(porcIva),
+      porcIva: porcIva === '' ? null : Number(porcIva),
       porcDescuento: Number(porcDescuento),
       detalles: validDetails.map((l) => ({ detalle: l.detalle.trim(), cantidad: Number(l.cantidad), valor: Number(l.valor) })),
     };
@@ -177,13 +301,36 @@ export default function CostOrderForm() {
       .then((res) => {
         if (res?.success) {
           setMessage({ type: 'success', text: res.message || (isEdit ? 'Orden actualizada.' : 'Orden creada.') });
-          setTimeout(() => navigate('/medios/ordenes-costo/listar'), 900);
+          if (!isEdit && res.data?.id) {
+            setTimeout(() => navigate(`/medios/ordenes-costo/${res.data.id}/editar`), 900);
+          }
         } else {
           setMessage({ type: 'error', text: res?.message || 'No se pudo guardar la orden.' });
         }
       })
       .catch(() => setMessage({ type: 'error', text: 'No se pudo guardar la orden.' }))
       .finally(() => setSaving(false));
+  };
+
+  const finalizeOrder = () => {
+    if (!isEdit || finishing) return;
+    setFinishing(true);
+    setMessage(null);
+    api.finalizeCostOrder(id)
+      .then((res) => {
+        if (res?.success) {
+          setMessage({ type: 'success', text: res.message || 'Orden finalizada.' });
+          return api.getCostOrder(id).then((fresh) => {
+            if (!fresh?.success) return;
+            setEstado(fresh.data.estado);
+            setEditable(fresh.data.editable);
+            setPermittedActions(fresh.data.permittedActions || []);
+          });
+        }
+        setMessage({ type: 'error', text: res?.message || 'No se pudo finalizar la orden.' });
+      })
+      .catch(() => setMessage({ type: 'error', text: 'No se pudo finalizar la orden.' }))
+      .finally(() => { setFinishing(false); setFinishConfirmOpen(false); });
   };
 
   if (loading) {
@@ -207,6 +354,11 @@ export default function CostOrderForm() {
           {editable && (
             <button onClick={submit} disabled={!canSubmit || saving} style={{ height: 40, padding: '0 18px', border: 'none', background: canSubmit ? 'var(--primary,#0f172a)' : 'var(--border-strong,#d5d9e0)', color: '#fff', borderRadius: 10, fontWeight: 700, fontSize: 13.5, cursor: canSubmit && !saving ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: 8 }}>
               <Icon d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" size={16} sw={1.8} />{saving ? 'Guardando…' : 'Guardar orden'}
+            </button>
+          )}
+          {isEdit && permittedActions.includes('finish') && (
+            <button onClick={() => setFinishConfirmOpen(true)} disabled={finishing} style={{ height: 40, padding: '0 18px', border: 'none', background: 'var(--primary,#0f172a)', color: '#fff', borderRadius: 10, fontWeight: 700, fontSize: 13.5, cursor: finishing ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 8, opacity: finishing ? .7 : 1 }}>
+              <Icon d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10" size={16} sw={1.9} />{finishing ? 'Finalizando…' : 'Finalizar orden'}
             </button>
           )}
         </div>
@@ -267,13 +419,20 @@ export default function CostOrderForm() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {detalles.map((row, i) => (
                 <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <input value={row.detalle} onChange={(e) => setLine(i, 'detalle', e.target.value)} placeholder={'Detalle ' + (i + 1)} style={{ ...inBase, flex: 1, minWidth: 0 }} />
-                  <input value={row.cantidad} onChange={(e) => setLine(i, 'cantidad', e.target.value.replace(/[^0-9]/g, ''))} title="Cantidad" style={{ ...inBase, width: 74, flex: 'none', textAlign: 'center' }} />
-                  <input value={row.valor} onChange={(e) => setLine(i, 'valor', e.target.value.replace(/[^0-9.]/g, ''))} placeholder="Valor" style={{ ...inBase, width: 130, flex: 'none' }} />
+                  <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+                    <input value={row.detalle} onChange={(e) => setLine(i, 'detalle', e.target.value)} disabled={row.hasBudget} title={row.detalle} placeholder={'Detalle ' + (i + 1)} style={{ ...inBase, paddingRight: row.hasBudget ? 42 : inBase.padding, background: row.hasBudget ? 'var(--surface-2,#f7f8fa)' : inBase.background }} />
+                    {row.hasBudget && (
+                      <span title={budgetSourceTitle(row)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 22, height: 22, borderRadius: 999, border: '1px solid var(--border-strong,#d5d9e0)', color: 'var(--primary,#0f172a)', background: 'var(--surface,#fff)', display: 'grid', placeItems: 'center', cursor: 'help' }}>
+                        <Icon d="M12 16v-4M12 8h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" size={14} sw={2} />
+                      </span>
+                    )}
+                  </div>
+                  <input value={row.cantidad} onChange={(e) => setLine(i, 'cantidad', e.target.value.replace(/[^0-9]/g, ''))} disabled={row.hasBudget} title="Cantidad" style={{ ...inBase, width: 74, flex: 'none', textAlign: 'center', background: row.hasBudget ? 'var(--surface-2,#f7f8fa)' : inBase.background }} />
+                  <input value={row.valor} onChange={(e) => setLine(i, 'valor', e.target.value.replace(/[^0-9.]/g, ''))} disabled={row.hasBudget} placeholder="Valor" style={{ ...inBase, width: 130, flex: 'none', background: row.hasBudget ? 'var(--surface-2,#f7f8fa)' : inBase.background }} />
                   <div style={{ width: 130, flex: 'none', fontSize: 13, fontWeight: 600, color: 'var(--fg-2,#334155)', textAlign: 'right', fontFamily: 'JetBrains Mono,monospace' }}>{fmtMoneyFull(lineTotal(row))}</div>
-                  <button onClick={() => removeLine(i)} style={{ width: 44, height: 44, flex: 'none', border: '1px solid var(--border-strong,#d5d9e0)', background: 'var(--surface,#fff)', borderRadius: 10, color: '#ef4444', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
-                    <Icon d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" size={16} sw={1.9} />
-                  </button>
+                  {editable && <button onClick={() => removeLine(i)} disabled={!!row.idDetalle && deletingDetail === row.idDetalle} style={{ width: 44, height: 44, flex: 'none', border: '1px solid var(--border-strong,#d5d9e0)', background: 'var(--surface,#fff)', borderRadius: 10, color: row.hasBudget ? '#2563eb' : '#ef4444', cursor: deletingDetail ? 'default' : 'pointer', display: 'grid', placeItems: 'center', opacity: !!row.idDetalle && deletingDetail === row.idDetalle ? .55 : 1 }} title={row.hasBudget ? 'Eliminar y liberar presupuesto' : 'Eliminar línea'}>
+                      <Icon d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" size={16} sw={1.9} />
+                  </button>}
                 </div>
               ))}
             </div>
@@ -281,6 +440,40 @@ export default function CostOrderForm() {
               <Icon d="M12 5v14M5 12h14" size={16} sw={2} />Agregar línea
             </button>
           </div>
+
+          {isEdit && editable && (
+            <div style={card}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--fg,#0f172a)' }}>Presupuesto</div>
+              <div style={{ fontSize: 13, color: 'var(--muted,#64748b)', margin: '3px 0 16px' }}>Busca un presupuesto existente y agrega líneas disponibles a esta orden.</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, alignItems: 'end' }}>
+                <div><label style={lbl}>Tipo de presupuesto</label><select value={budgetTipo} onChange={(e) => setBudgetTipo(e.target.value)} style={{ ...inBase, borderColor: budgetSubmitted && !budgetTipo ? '#ef4444' : 'var(--border-strong,#d5d9e0)' }}><option value="">Selecciona tipo</option>{budgetTypes.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select></div>
+                <div><label style={lbl}>Número</label><input value={budgetPpto} onChange={(e) => setBudgetPpto(e.target.value.replace(/[^0-9]/g, ''))} style={{ ...inBase, borderColor: budgetSubmitted && !budgetPpto ? '#ef4444' : 'var(--border-strong,#d5d9e0)' }} /></div>
+                <button onClick={searchBudget} disabled={budgetLoading} style={{ ...btnGhost, height: 44 }}>{budgetLoading ? 'Buscando…' : 'Buscar'}</button>
+              </div>
+              {budgetLines.length > 0 && (
+                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {budgetLines.map((line, i) => (
+                    <div key={line.idDetallePpto} style={{ padding: 12, border: '1px solid var(--border,#e5e8ec)', borderRadius: 14, background: 'var(--surface,#fff)', overflow: 'hidden' }}>
+                      <div style={{ marginBottom: 10 }}>
+                        <div style={{ marginBottom: 6, fontSize: 11.5, fontWeight: 800, color: 'var(--muted,#64748b)', textTransform: 'uppercase', letterSpacing: '.03em' }}>Detalle</div>
+                        <textarea value={line.detalle} readOnly rows={3} style={{ width: '100%', minHeight: 72, padding: '10px 11px', borderRadius: 10, border: '1px solid var(--border-strong,#d5d9e0)', background: 'var(--surface-2,#f7f8fa)', color: 'var(--fg-2,#334155)', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box', minWidth: 0 }} />
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '140px 110px minmax(150px,1fr) 96px', gap: 10, alignItems: 'end' }}>
+                        <div>
+                          <label style={lbl}>Total</label>
+                          <div style={{ height: 38, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 11px', borderRadius: 10, border: '1px solid var(--border,#e5e8ec)', background: 'rgba(15,23,42,.05)', fontSize: 12.5, fontWeight: 800, color: 'var(--fg,#0f172a)', fontFamily: 'JetBrains Mono,monospace', whiteSpace: 'nowrap', boxSizing: 'border-box' }}>{fmtMoneyFull(line.total)}</div>
+                        </div>
+                        <div><label style={lbl}>Cantidad OC</label><input value={line.cantidad || ''} onChange={(e) => setBudgetLine(i, 'cantidad', e.target.value.replace(/[^0-9]/g, ''))} style={{ ...inBase, height: 38, textAlign: 'center' }} /></div>
+                        <div><label style={lbl}>Valor a asignar</label><input value={line.asignado || ''} onChange={(e) => setBudgetLine(i, 'asignado', e.target.value.replace(/[^0-9.]/g, ''))} style={{ ...inBase, height: 38 }} /></div>
+                        <button onClick={() => attachBudget(line)} disabled={budgetSaving !== null || Number(line.asignado) <= 0 || Number(line.asignado) > Number(line.disponible)} style={{ ...btnGhost, height: 38, justifyContent: 'center', padding: '0 12px' }}>{budgetSaving === line.idDetallePpto ? '...' : 'Agregar'}</button>
+                      </div>
+                      {Number(line.disponible) < Number(line.total) && <div style={{ marginTop: 8, fontSize: 12, color: Number(line.disponible) <= 0 ? '#b91c1c' : 'var(--muted,#64748b)' }}>{Number(line.disponible) <= 0 ? `Sin saldo disponible${line.ordenCosto ? `: ya está asociado a la OC #${line.ordenCosto}` : ''}.` : `Disponible para asignar: ${fmtMoneyFull(line.disponible)}`}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={card}>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--fg,#0f172a)' }}>Observación</div>
@@ -311,6 +504,16 @@ export default function CostOrderForm() {
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        open={finishConfirmOpen}
+        title="Finalizar orden de costo"
+        description="Al finalizar no podrás modificar ni agregar más items a la orden."
+        confirmLabel="Finalizar orden"
+        tone="warning"
+        loading={finishing}
+        onConfirm={finalizeOrder}
+        onCancel={() => setFinishConfirmOpen(false)}
+      />
     </div>
   );
 }

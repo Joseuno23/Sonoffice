@@ -114,6 +114,8 @@ export const api = {
     ).toString();
     return req('/cost-orders' + (qs ? '?' + qs : ''));
   },
+  getCostOrderDefaults: () => req('/cost-orders/defaults'),
+  getCostOrderDuplicateCandidates: (search) => req('/cost-orders/duplicate-candidates' + (search ? '?search=' + encodeURIComponent(search) : '')),
   getCostOrderStatuses: () => req('/cost-orders/statuses'),
   getCostOrderClients: (search) => req('/cost-orders/clients' + (search ? '?search=' + encodeURIComponent(search) : '')),
   getCostOrderProviders: (search) => req('/cost-orders/providers' + (search ? '?search=' + encodeURIComponent(search) : '')),
@@ -122,7 +124,27 @@ export const api = {
   getCostOrderProducts: (clientId) => req('/cost-orders/products?clientId=' + encodeURIComponent(clientId || '')),
   createCostOrder: (payload) => req('/cost-orders', { method: 'POST', body: JSON.stringify(payload) }),
   getCostOrder: (id) => req('/cost-orders/' + encodeURIComponent(id)),
+  getCostOrderFinalObservation: (id) => req('/cost-orders/' + encodeURIComponent(id) + '/final-observation'),
+  addCostOrderFinalObservation: (id, observacion) => req('/cost-orders/' + encodeURIComponent(id) + '/final-observation', { method: 'POST', body: JSON.stringify({ observacion }) }),
+  getCostOrderPrintData: (id) => req('/cost-orders/' + encodeURIComponent(id) + '/print-data'),
+  printCostOrder: (id) => req('/cost-orders/' + encodeURIComponent(id) + '/print', { method: 'POST' }),
   updateCostOrder: (id, payload) => req('/cost-orders/' + encodeURIComponent(id), { method: 'PUT', body: JSON.stringify(payload) }),
+  finalizeCostOrder: (id) => req('/cost-orders/' + encodeURIComponent(id) + '/finalize', { method: 'POST' }),
+  anuleCostOrder: (id) => req('/cost-orders/' + encodeURIComponent(id) + '/anule', { method: 'POST' }),
+  replaceCostOrder: (id) => req('/cost-orders/' + encodeURIComponent(id) + '/replace', { method: 'POST' }),
+  duplicateCostOrders: (orderIds) => req('/cost-orders/duplicate', { method: 'POST', body: JSON.stringify({ orderIds }) }),
+  getCostOrderCompensateContext: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '') as [string, string][],
+    ).toString();
+    return req('/cost-orders/compensate' + (qs ? '?' + qs : ''));
+  },
+  suggestCostOrderCompensation: (payload) => req('/cost-orders/compensate/suggestions', { method: 'POST', body: JSON.stringify(payload) }),
+  associateCostOrderCompensation: (payload) => req('/cost-orders/compensate/associate', { method: 'POST', body: JSON.stringify(payload) }),
+  reverseCostOrderCompensationAssociation: (payload) => req('/cost-orders/compensate/association/reverse', { method: 'POST', body: JSON.stringify(payload) }),
+  deleteCostOrderDetail: (id, detailId) => req('/cost-orders/' + encodeURIComponent(id) + '/details/' + encodeURIComponent(detailId), { method: 'DELETE' }),
+  getCostOrderBudgetLines: (id, tipo, ppto) => req('/cost-orders/' + encodeURIComponent(id) + '/budget-lines?tipo=' + encodeURIComponent(tipo || '') + '&ppto=' + encodeURIComponent(ppto || '')),
+  attachCostOrderBudgetLine: (id, payload) => req('/cost-orders/' + encodeURIComponent(id) + '/budget-lines', { method: 'POST', body: JSON.stringify(payload) }),
   getOrders: () => req('/orders'),
   getOrder: (id) => req('/orders/' + encodeURIComponent(id)),
   createOrder: (payload) => req('/orders', { method: 'POST', body: JSON.stringify(payload) }),

@@ -18,6 +18,8 @@ import InternalRegulation from '../pages/InternalRegulation';
 import Helpdesk from '../pages/Helpdesk';
 import CostOrdersList from '../pages/CostOrdersList';
 import CostOrderForm from '../pages/CostOrderForm';
+import CostOrderPrint from '../pages/CostOrderPrint';
+import CostOrderCompensate from '../pages/CostOrderCompensate';
 import RolePermissions from '../pages/RolePermissions';
 
 function RequireAuth({ children }) {
@@ -30,6 +32,14 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route
+        path="/medios/ordenes-costo/:id/imprimir"
+        element={
+          <RequireAuth>
+            <CostOrderPrint />
+          </RequireAuth>
+        }
+      />
       <Route
         element={
           <RequireAuth>
@@ -62,6 +72,7 @@ export default function AppRoutes() {
         <Route path="/system/users" element={<SystemUsers />} />
         <Route path="/helpdesk" element={<Helpdesk />} />
         <Route path="/medios/ordenes-costo/listar" element={<CostOrdersList />} />
+        <Route path="/medios/ordenes-costo/compensar" element={<CostOrderCompensate />} />
         <Route path="/medios/ordenes-costo/nueva" element={<CostOrderForm />} />
         <Route path="/medios/ordenes-costo/:id/editar" element={<CostOrderForm />} />
         <Route path="/accesos-rapidos/codigo-etica-conducta" element={<CodeOfEthics />} />

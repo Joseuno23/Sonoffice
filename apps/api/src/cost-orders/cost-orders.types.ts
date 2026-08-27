@@ -14,6 +14,8 @@ export interface CostOrderRow extends RowDataPacket {
   tipo: string | null; // 'I' | 'E'
   total: number | null;
   valor: number | null;
+  hasFinalObservation: number;
+  hasBudgetLinks: number;
 }
 
 export interface CostOrderCountRow extends RowDataPacket {
@@ -24,6 +26,19 @@ export interface CostOrderCountRow extends RowDataPacket {
 export interface CostOrderOptionRow extends RowDataPacket {
   id: number;
   label: string;
+}
+
+export interface CostOrderBudgetTypeRow extends RowDataPacket {
+  id: number;
+  label: string;
+}
+
+export interface CostOrderDefaultsRow extends RowDataPacket {
+  iva: number | null;
+}
+
+export interface CostOrderDefaultsData {
+  porcIva: number;
 }
 
 export interface CostOrderListQuery {
@@ -48,6 +63,8 @@ export interface CostOrderListItem {
   usuario: string | null;
   tipo: 'INTERNA' | 'EXTERNA' | null;
   total: number;
+  hasFinalObservation: boolean;
+  hasBudgetLinks: boolean;
   // Acciones que el usuario actual PUEDE ejecutar sobre esta orden
   // (permiso del rol ∩ regla de negocio por estado). El frontend solo pinta esto.
   permittedActions: string[];
@@ -64,6 +81,21 @@ export interface CostOrderListData {
   moduleActions: string[];
 }
 
+export interface CostOrderDuplicateCandidate {
+  id: number;
+  fecha: string | null;
+  cliente: string | null;
+  proveedor: string | null;
+  campana: string | null;
+  total: number;
+}
+
+export interface CostOrderDuplicateCandidateRow extends RowDataPacket, CostOrderDuplicateCandidate {}
+
+export interface CostOrderDuplicatePayload {
+  orderIds?: unknown;
+}
+
 export interface CostOrderCreatePayload {
   idCliente?: unknown;
   idProveedor?: unknown;
@@ -78,6 +110,10 @@ export interface CostOrderCreatePayload {
 }
 
 export type CostOrderUpdatePayload = CostOrderCreatePayload;
+
+export interface CostOrderFinalObservationPayload {
+  observacion?: unknown;
+}
 
 // Fila cruda de la cabecera al cargar para edición.
 export interface CostOrderHeaderRow extends RowDataPacket {
@@ -104,6 +140,47 @@ export interface CostOrderHeaderRow extends RowDataPacket {
   cobrado: number | null;
   faltante: number | null;
   fecha: Date | string | null;
+  tipoPpto: number | string | null;
+}
+
+export interface CostOrderDuplicateHeaderRow extends RowDataPacket {
+  id: number;
+  idCliente: number | null;
+  idProveedor: number | null;
+  idCampana: number | null;
+  idProducto: number | null;
+  idServicio: number | null;
+  tipo: string | null;
+  observacion: string | null;
+  porcIva: number | null;
+  porcDescuento: number | null;
+  valor: number | null;
+  total: number | null;
+}
+
+export interface CostOrderReplacementHeaderRow extends RowDataPacket {
+  id: number;
+  idEstado: number | null;
+  idCliente: number | null;
+  idProveedor: number | null;
+  idCampana: number | null;
+  idProducto: number | null;
+  idServicio: number | null;
+  tipo: string | null;
+  observacion: string | null;
+  porcIva: number | null;
+  porcDescuento: number | null;
+  valor: number | null;
+  total: number | null;
+  cobrado: number | null;
+  faltante: number | null;
+}
+
+export interface CostOrderFinalizeRow extends RowDataPacket {
+  id: number;
+  idEstado: number | null;
+  valor: number | null;
+  faltante: number | null;
 }
 
 // Fila cruda de una línea de detalle (con flag de si está vinculada a presupuesto).
@@ -114,6 +191,203 @@ export interface CostOrderDetailRow extends RowDataPacket {
   valor: number;
   total: number;
   hasBudget: number; // 1 si tiene sys_oc_ppto, 0 si no
+  budgetTipo: number | null;
+  budgetPpto: number | null;
+}
+
+export interface CostOrderReplacementDetailRow extends RowDataPacket {
+  idDetalle: number;
+  detalle: string;
+  cantidad: number;
+  valor: number;
+  total: number;
+  totalCobrado: number | null;
+}
+
+export interface CostOrderBudgetLinkRow extends RowDataPacket {
+  idPpto: number | null;
+  idDetallePpto: number | null;
+  idDetalleOrden: number | null;
+  modulo: number | null;
+  cobradoItem: number | null;
+}
+
+export interface CostOrderPrintHeaderRow extends RowDataPacket {
+  id: number;
+  fecha: Date | string | null;
+  idEstado: number | null;
+  estado: string | null;
+  tipo: string | null;
+  observacion: string | null;
+  porcIva: number | null;
+  porcDescuento: number | null;
+  valor: number | null;
+  total: number | null;
+  numImpresiones: number | null;
+  cliente: string | null;
+  clienteDocumento: string | null;
+  clienteDireccion: string | null;
+  clienteTelefono: string | null;
+  clienteCiudad: string | null;
+  proveedor: string | null;
+  proveedorDocumento: string | null;
+  proveedorDireccion: string | null;
+  proveedorTelefono: string | null;
+  proveedorCiudad: string | null;
+  campana: string | null;
+  producto: string | null;
+  servicio: string | null;
+  creador: string | null;
+  creadorEmail: string | null;
+}
+
+export interface CostOrderPrintBudgetRow extends RowDataPacket {
+  ppto: number;
+  tipo: number | null;
+}
+
+export interface CostOrderPrintBillingRow extends RowDataPacket {
+  nit: string | null;
+  razonSocial: string | null;
+  nombreComercial: string | null;
+  direccion: string | null;
+  ciudad: string | null;
+  departamento: string | null;
+  pais: string | null;
+  telefono: string | null;
+  dv: string | null;
+}
+
+export interface CostOrderBudgetLineRow extends RowDataPacket {
+  id: number;
+  idDetalle: number;
+  detalle: string;
+  total: number;
+  estado: number;
+  valorAsignadoOc: number;
+  ordenCosto: number;
+  idCliente: number;
+  idProveedor: number;
+  disponible: number;
+}
+
+export interface CostOrderCompensateDetailRow extends RowDataPacket {
+  idDetalle: number;
+  detalle: string;
+  cantidad: number;
+  valor: number;
+  total: number;
+  totalCobrado: number | null;
+  faltante: number;
+}
+
+export interface CostOrderCompensateAssociationRow extends RowDataPacket {
+  associationId: number | null;
+  idDetalleOrden: number;
+  idDetallePpto: number;
+  idPpto: number;
+  modulo: number;
+  cobradoItem: number;
+  orderDetail: string | null;
+  budgetDetail: string | null;
+}
+
+export interface CostOrderCompensateQuery {
+  orderId?: unknown;
+  tipo?: unknown;
+  ppto?: unknown;
+}
+
+export interface CostOrderCompensateAssociationInput {
+  idDetalleOrden?: unknown;
+  idDetallePpto?: unknown;
+  valor?: unknown;
+}
+
+export interface CostOrderCompensatePayload {
+  orderId?: unknown;
+  tipo?: unknown;
+  ppto?: unknown;
+  associations?: unknown;
+}
+
+export interface CostOrderCompensateReversePayload {
+  orderId?: unknown;
+  associationId?: unknown;
+}
+
+export interface CostOrderCompensateOrderDetail {
+  idDetalle: number;
+  detalle: string;
+  total: number;
+  totalCobrado: number;
+  faltante: number;
+}
+
+export interface CostOrderCompensateBudgetLine {
+  idPpto: number;
+  idDetallePpto: number;
+  detalle: string;
+  total: number;
+  valorAsignadoOc: number;
+  ordenCosto: number;
+  disponible: number;
+}
+
+export interface CostOrderCompensateAssociation {
+  associationId: number | null;
+  idDetalleOrden: number;
+  idDetallePpto: number;
+  idPpto: number;
+  modulo: number;
+  tipoLabel: string | null;
+  cobradoItem: number;
+  orderDetail: string | null;
+  budgetDetail: string | null;
+}
+
+export interface CostOrderCompensateData {
+  order: {
+    id: number;
+    idEstado: number | null;
+    estado: string | null;
+    cliente: string | null;
+    proveedor: string | null;
+    total: number;
+    cobrado: number;
+    faltante: number;
+  } | null;
+  budget: {
+    tipo: number;
+    ppto: number;
+    estado: number | null;
+  } | null;
+  orderDetails: CostOrderCompensateOrderDetail[];
+  budgetLines: CostOrderCompensateBudgetLine[];
+  associations: CostOrderCompensateAssociation[];
+  budgetTypes: { id: number; label: string }[];
+}
+
+export interface CostOrderCompensateSuggestion {
+  idDetalleOrden: number;
+  idDetallePpto: number;
+  orderDetail: string;
+  budgetDetail: string;
+  suggestedValue: number;
+  confidence: 'Alta' | 'Media' | 'Baja';
+  score: number;
+  reason: string;
+  conflict: boolean;
+  includeInBulk: boolean;
+}
+
+export interface CostOrderBudgetAttachPayload {
+  tipo?: unknown;
+  ppto?: unknown;
+  idDetallePpto?: unknown;
+  detalle?: unknown;
+  cantidad?: unknown;
+  valorAsignado?: unknown;
 }
 
 export interface CostOrderDetailItem {
@@ -123,6 +397,8 @@ export interface CostOrderDetailItem {
   valor: number;
   total: number;
   hasBudget: boolean;
+  budgetTipo: number | null;
+  budgetPpto: number | null;
 }
 
 export interface CostOrderDetailData {
@@ -147,6 +423,45 @@ export interface CostOrderDetailData {
   valor: number;
   total: number;
   detalles: CostOrderDetailItem[];
+  permittedActions: string[];
+}
+
+export interface CostOrderPrintData {
+  company: {
+    name: string;
+    commercialName: string | null;
+    nit: string | null;
+    address: string | null;
+    city: string | null;
+    department: string | null;
+    country: string | null;
+    phone: string | null;
+  };
+  order: {
+    id: number;
+    fecha: string | null;
+    estado: string | null;
+    tipo: 'INTERNA' | 'EXTERNA' | null;
+    copyLabel: 'ORIGINAL' | 'DUPLICADO';
+    numImpresiones: number;
+    observacion: string | null;
+  };
+  client: { name: string | null; nit: string | null; address: string | null; phone: string | null; city: string | null };
+  provider: { name: string | null; nit: string | null; address: string | null; phone: string | null; city: string | null };
+  campaign: string | null;
+  product: string | null;
+  service: string | null;
+  budgets: { ppto: number; tipo: number | null }[];
+  details: { idDetalle: number; detalle: string; cantidad: number; valor: number; total: number }[];
+  totals: { valor: number; descuento: number; subtotal: number; iva: number; total: number; porcDescuento: number; porcIva: number };
+  creator: { name: string | null; email: string | null };
+}
+
+export interface CostOrderPrintMutationData {
+  id: number;
+  idEstado: number | null;
+  numImpresiones: number;
+  copyLabel: 'ORIGINAL' | 'DUPLICADO';
 }
 
 export type CostOrderErrorCode =
