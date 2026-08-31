@@ -20,6 +20,8 @@ import CostOrdersList from '../pages/CostOrdersList';
 import CostOrderForm from '../pages/CostOrderForm';
 import CostOrderPrint from '../pages/CostOrderPrint';
 import CostOrderCompensate from '../pages/CostOrderCompensate';
+import CostOrdersReport from '../pages/CostOrdersReport';
+import CostOrdersCompensationReport from '../pages/CostOrdersCompensationReport';
 import RolePermissions from '../pages/RolePermissions';
 
 function RequireAuth({ children }) {
@@ -75,6 +77,9 @@ export default function AppRoutes() {
         <Route path="/medios/ordenes-costo/compensar" element={<CostOrderCompensate />} />
         <Route path="/medios/ordenes-costo/nueva" element={<CostOrderForm />} />
         <Route path="/medios/ordenes-costo/:id/editar" element={<CostOrderForm />} />
+        <Route path="/reportes/ordenes-costo" element={<Navigate to="/reportes/ordenes-costo/general" replace />} />
+        <Route path="/reportes/ordenes-costo/general" element={<CostOrdersReport />} />
+        <Route path="/reportes/ordenes-costo/compensacion" element={<CostOrdersCompensationReport />} />
         <Route path="/accesos-rapidos/codigo-etica-conducta" element={<CodeOfEthics />} />
         <Route path="/accesos-rapidos/politicas-sig" element={<SigPolicies />} />
         <Route path="/accesos-rapidos/alcance-sig" element={<SigScope />} />

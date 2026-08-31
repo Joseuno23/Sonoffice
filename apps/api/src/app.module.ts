@@ -10,6 +10,7 @@ import { SystemUsersModule } from './system-users/system-users.module';
 import { HelpdeskModule } from './helpdesk/helpdesk.module';
 import { CostOrdersModule } from './cost-orders/cost-orders.module';
 import { PermissionsModule } from './permissions/permissions.module';
+import { ReportsModule } from './reports/reports.module';
 import { HealthController } from './health.controller';
 import databaseConfig from './config/database.config';
 import emailConfig from './config/email.config';
@@ -33,6 +34,7 @@ import { DbModule } from './db/db.module';
     HelpdeskModule,
     CostOrdersModule,
     PermissionsModule,
+    ReportsModule,
   ],
   controllers: [HealthController],
 })

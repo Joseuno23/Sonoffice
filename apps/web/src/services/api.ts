@@ -66,6 +66,22 @@ async function reqForm(path, formData) {
   return res.json();
 }
 
+async function reqBlob(path, options: any = {}) {
+  const token = getAuthToken();
+  const res = await fetch(BASE + path, {
+    ...options,
+    headers: {
+      ...(token ? { Authorization: 'Bearer ' + token } : {}),
+      ...(options.headers || {}),
+    },
+  });
+  if (res.status === 401) handleUnauthorized();
+  if (!res.ok) throw new ApiError(res.status);
+  const disposition = res.headers.get('content-disposition') || '';
+  const match = disposition.match(/filename="?([^";]+)"?/i);
+  return { blob: await res.blob(), filename: match?.[1] || 'reporte-ordenes-costo.csv' };
+}
+
 export const api = {
   login: (email, password) => req('/auth/login', { method: 'POST', body: JSON.stringify({ username: email, password }) }),
   changeRequiredPassword: (payload) => req('/auth/change-required-password', { method: 'POST', body: JSON.stringify(payload) }),
@@ -145,6 +161,19 @@ export const api = {
   deleteCostOrderDetail: (id, detailId) => req('/cost-orders/' + encodeURIComponent(id) + '/details/' + encodeURIComponent(detailId), { method: 'DELETE' }),
   getCostOrderBudgetLines: (id, tipo, ppto) => req('/cost-orders/' + encodeURIComponent(id) + '/budget-lines?tipo=' + encodeURIComponent(tipo || '') + '&ppto=' + encodeURIComponent(ppto || '')),
   attachCostOrderBudgetLine: (id, payload) => req('/cost-orders/' + encodeURIComponent(id) + '/budget-lines', { method: 'POST', body: JSON.stringify(payload) }),
+  getCostOrdersReportOptions: () => req('/reports/cost-orders/options'),
+  downloadCostOrdersReport: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '') as [string, string][],
+    ).toString();
+    return reqBlob('/reports/cost-orders/export' + (qs ? '?' + qs : ''));
+  },
+  downloadCostOrdersCompensationReport: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '') as [string, string][],
+    ).toString();
+    return reqBlob('/reports/cost-orders/compensation/export' + (qs ? '?' + qs : ''));
+  },
   getOrders: () => req('/orders'),
   getOrder: (id) => req('/orders/' + encodeURIComponent(id)),
   createOrder: (payload) => req('/orders', { method: 'POST', body: JSON.stringify(payload) }),
