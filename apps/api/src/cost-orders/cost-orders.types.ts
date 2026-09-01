@@ -107,6 +107,7 @@ export interface CostOrderCreatePayload {
   porcIva?: unknown;
   porcDescuento?: unknown;
   detalles?: unknown; // array de { detalle, cantidad, valor }
+  budgetDetails?: unknown; // array de { tipo, ppto, idDetallePpto, cantidad, valorAsignado }
 }
 
 export type CostOrderUpdatePayload = CostOrderCreatePayload;
@@ -193,6 +194,8 @@ export interface CostOrderDetailRow extends RowDataPacket {
   hasBudget: number; // 1 si tiene sys_oc_ppto, 0 si no
   budgetTipo: number | null;
   budgetPpto: number | null;
+  budgetIdDetallePpto: number | null;
+  budgetValorAsignado: number | null;
 }
 
 export interface CostOrderReplacementDetailRow extends RowDataPacket {
@@ -390,6 +393,13 @@ export interface CostOrderBudgetAttachPayload {
   valorAsignado?: unknown;
 }
 
+export interface CostOrderBudgetSearchQuery {
+  idCliente?: unknown;
+  idProveedor?: unknown;
+  tipo?: unknown;
+  ppto?: unknown;
+}
+
 export interface CostOrderDetailItem {
   idDetalle: number;
   detalle: string;
@@ -399,6 +409,8 @@ export interface CostOrderDetailItem {
   hasBudget: boolean;
   budgetTipo: number | null;
   budgetPpto: number | null;
+  budgetIdDetallePpto: number | null;
+  budgetValorAsignado: number | null;
 }
 
 export interface CostOrderDetailData {

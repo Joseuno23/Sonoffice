@@ -4,7 +4,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import PageHeader from '../components/PageHeader';
 import { TableSkeleton } from '../components/Skeletons';
 import { Icon } from '../lib/icons';
-import { fmtMoney } from '../lib/format';
+import { fmtMoneyFull } from '../lib/format';
 import { api } from '../services/api';
 
 const card: CSSProperties = { background: 'var(--surface,#fff)', border: '1px solid var(--border,#e5e8ec)', borderRadius: 16, boxShadow: 'var(--shadow)', overflow: 'hidden' };
@@ -448,7 +448,7 @@ export default function CostOrdersList() {
                       <td style={{ padding: '13px 16px', fontSize: 13, color: 'var(--fg-2,#334155)', maxWidth: 200 }}>{order.campana || '—'}</td>
                       <td style={{ padding: '13px 16px', fontSize: 13, color: 'var(--fg-2,#334155)' }}>{order.usuario || '—'}</td>
                       <td style={{ padding: '13px 16px' }}><StatusBadge estado={order.estado} color={order.estadoColor} /></td>
-                      <td style={{ padding: '13px 16px', textAlign: 'right', fontFamily: 'JetBrains Mono,monospace', fontSize: 13, fontWeight: 600, color: 'var(--fg,#0f172a)', whiteSpace: 'nowrap' }}>{fmtMoney(order.total)}</td>
+                      <td style={{ padding: '13px 16px', textAlign: 'right', fontFamily: 'JetBrains Mono,monospace', fontSize: 13, fontWeight: 600, color: 'var(--fg,#0f172a)', whiteSpace: 'nowrap' }}>{fmtMoneyFull(order.total)}</td>
                       <td style={{ padding: '13px 16px', textAlign: 'right' }}>
                         {visibleActions.length > 0 ? (
                           <button
@@ -602,7 +602,7 @@ export default function CostOrdersList() {
                         <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--fg-2,#334155)' }}>{order.cliente || '—'}</td>
                         <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--fg-2,#334155)' }}>{order.proveedor || '—'}</td>
                         <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--fg-2,#334155)' }}>{order.campana || '—'}</td>
-                        <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'JetBrains Mono,monospace', fontSize: 13, fontWeight: 600 }}>{fmtMoney(order.total)}</td>
+                        <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'JetBrains Mono,monospace', fontSize: 13, fontWeight: 600 }}>{fmtMoneyFull(order.total)}</td>
                       </tr>
                     ))}
                   </tbody>

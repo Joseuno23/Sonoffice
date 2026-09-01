@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import AlertMessage from '../components/AlertMessage';
 import { Icon } from '../lib/icons';
 import { useAuth } from '../auth/AuthContext';
 import { api } from '../services/api';
@@ -179,11 +180,7 @@ export default function Login() {
             <a href="#" onClick={(e) => { e.preventDefault(); openPasswordRecovery(); }} style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--brand,#0891b2)', textDecoration: 'none' }}>¿Olvidaste tu contraseña?</a>
           </div>
 
-          {message && (
-            <div style={{ margin: '-6px 0 16px', padding: '10px 12px', borderRadius: 10, background: 'rgba(244,63,94,.08)', color: '#be123c', border: '1px solid rgba(244,63,94,.22)', fontSize: 13, lineHeight: 1.4 }}>
-              {message}
-            </div>
-          )}
+          {message && <AlertMessage style={{ margin: '-6px 0 16px', padding: '10px 12px', background: 'rgba(244,63,94,.08)', color: '#be123c', border: '1px solid rgba(244,63,94,.22)', lineHeight: 1.4 }}>{message}</AlertMessage>}
 
           <button disabled={logging} onClick={doLogin} style={{ width: '100%', height: 48, border: 'none', borderRadius: 12, background: 'var(--primary,#0f172a)', color: 'var(--primary-fg,#fff)', fontSize: 15, fontWeight: 700, cursor: logging ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, transition: 'transform .12s,filter .15s', boxShadow: '0 6px 18px -6px rgba(15,23,42,.4)', opacity: logging ? 0.82 : 1 }} onMouseEnter={(e) => { if (!logging) e.currentTarget.style.filter = 'brightness(1.08)'; }} onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}>
             {logging && <span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'scspin .7s linear infinite', display: 'inline-block' }} />}

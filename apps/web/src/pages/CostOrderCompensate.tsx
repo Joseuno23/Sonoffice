@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
+import AlertMessage from '../components/AlertMessage';
 import ConfirmDialog from '../components/ConfirmDialog';
 import PageHeader from '../components/PageHeader';
 import { fmtMoneyFull } from '../lib/format';
@@ -218,7 +219,7 @@ export default function CostOrderCompensate() {
     <>
       <PageHeader crumb="Medios · Órdenes de costo" title="Compensar costos" sub="Asocia detalles existentes de una orden de costo contra detalles de presupuesto sin crear nuevos items." />
 
-      {message && <div style={{ marginBottom: 14, padding: '11px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, color: message.type === 'error' ? '#b91c1c' : '#047857', background: message.type === 'error' ? 'rgba(239,68,68,.10)' : 'rgba(16,185,129,.12)', border: `1px solid ${message.type === 'error' ? 'rgba(239,68,68,.18)' : 'rgba(16,185,129,.20)'}` }}>{message.text}</div>}
+      {message && <AlertMessage type={message.type} style={{ fontWeight: 700, border: message.type === 'success' ? '1px solid rgba(16,185,129,.20)' : undefined }}>{message.text}</AlertMessage>}
 
       <div style={{ ...card, marginBottom: 18 }}>
         <div style={{ padding: 18, display: 'grid', gridTemplateColumns: '160px 1fr 160px auto auto', gap: 12, alignItems: 'end' }}>

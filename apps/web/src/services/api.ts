@@ -160,6 +160,12 @@ export const api = {
   reverseCostOrderCompensationAssociation: (payload) => req('/cost-orders/compensate/association/reverse', { method: 'POST', body: JSON.stringify(payload) }),
   deleteCostOrderDetail: (id, detailId) => req('/cost-orders/' + encodeURIComponent(id) + '/details/' + encodeURIComponent(detailId), { method: 'DELETE' }),
   getCostOrderBudgetLines: (id, tipo, ppto) => req('/cost-orders/' + encodeURIComponent(id) + '/budget-lines?tipo=' + encodeURIComponent(tipo || '') + '&ppto=' + encodeURIComponent(ppto || '')),
+  getCostOrderBudgetLinesForCreate: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '') as [string, string][],
+    ).toString();
+    return req('/cost-orders/budget-lines' + (qs ? '?' + qs : ''));
+  },
   attachCostOrderBudgetLine: (id, payload) => req('/cost-orders/' + encodeURIComponent(id) + '/budget-lines', { method: 'POST', body: JSON.stringify(payload) }),
   getCostOrdersReportOptions: () => req('/reports/cost-orders/options'),
   downloadCostOrdersReport: (params = {}) => {

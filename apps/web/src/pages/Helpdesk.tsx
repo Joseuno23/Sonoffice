@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import AlertMessage from '../components/AlertMessage';
 import Badge from '../components/Badge';
 import PageHeader from '../components/PageHeader';
 import Pagination from '../components/Pagination';
@@ -263,9 +264,7 @@ export default function Helpdesk() {
     <>
       <PageHeader crumb="Gestión · Mesa de ayuda" title="Mesa de ayuda" sub="Solicita soporte interno y consulta el estado de tus tickets." primary={primary} />
 
-      {message && (
-        <div style={{ marginBottom: 14, padding: '11px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, color: message.type === 'error' ? '#b91c1c' : '#047857', background: message.type === 'error' ? 'rgba(239,68,68,.10)' : 'rgba(16,185,129,.12)', border: `1px solid ${message.type === 'error' ? 'rgba(239,68,68,.18)' : 'rgba(16,185,129,.18)'}` }}>{message.text}</div>
-      )}
+      {message && <AlertMessage type={message.type}>{message.text}</AlertMessage>}
 
       {!canCreate && (
         <div style={{ marginBottom: 14, padding: 14, borderRadius: 14, background: 'rgba(245,158,11,.12)', border: '1px solid rgba(245,158,11,.24)', color: '#92400e', fontSize: 13.5, fontWeight: 650 }}>

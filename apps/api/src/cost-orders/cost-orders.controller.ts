@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } fro
 import { AuthGuard } from '../auth/auth.guard';
 import { AuthUser, RequestUser } from '../auth/auth-user.decorator';
 import { CostOrdersService } from './cost-orders.service';
-import { CostOrderBudgetAttachPayload, CostOrderCompensatePayload, CostOrderCompensateQuery, CostOrderCompensateReversePayload, CostOrderCreatePayload, CostOrderDuplicatePayload, CostOrderFinalObservationPayload, CostOrderListQuery, CostOrderUpdatePayload } from './cost-orders.types';
+import { CostOrderBudgetAttachPayload, CostOrderBudgetSearchQuery, CostOrderCompensatePayload, CostOrderCompensateQuery, CostOrderCompensateReversePayload, CostOrderCreatePayload, CostOrderDuplicatePayload, CostOrderFinalObservationPayload, CostOrderListQuery, CostOrderUpdatePayload } from './cost-orders.types';
 
 @Controller('cost-orders')
 @UseGuards(AuthGuard)
@@ -82,6 +82,11 @@ export class CostOrdersController {
   @Post()
   createOrder(@AuthUser() user: RequestUser, @Body() payload: CostOrderCreatePayload) {
     return this.costOrdersService.createOrder(user.userId, user.roleId, payload);
+  }
+
+  @Get('budget-lines')
+  getBudgetLinesForCreate(@Query() query: CostOrderBudgetSearchQuery) {
+    return this.costOrdersService.getBudgetLinesForCreate(query);
   }
 
   @Get(':id/budget-lines')

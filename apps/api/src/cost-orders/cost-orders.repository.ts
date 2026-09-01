@@ -76,9 +76,16 @@ interface CompensateOrderLockRow extends RowDataPacket {
 
 type CompensateAssociationResult = { status: 'ok'; associated: number } | 'order-unavailable' | 'budget-unavailable' | 'detail-unavailable' | 'unavailable' | 'internal-type-mismatch' | 'external-type-mismatch';
 type CompensateReverseResult = 'ok' | 'identifier-unavailable' | 'not-found' | 'order-unavailable' | 'budget-unavailable' | 'detail-unavailable';
+type CreateOrderResult = number | 'budget-unavailable' | 'budget-type-mismatch' | 'unavailable';
 
 class CompensateRollbackError extends Error {
   constructor(readonly result: Exclude<CompensateAssociationResult, { status: 'ok'; associated: number }>) {
+    super(result);
+  }
+}
+
+class CreateOrderRollbackError extends Error {
+  constructor(readonly result: Exclude<CreateOrderResult, number>) {
     super(result);
   }
 }
@@ -473,7 +480,9 @@ export class CostOrdersRepository {
         d.total,
         CASE WHEN COUNT(p.id_orden) > 0 THEN 1 ELSE 0 END AS hasBudget,
         MAX(p.modulo) AS budgetTipo,
-        MAX(p.id_ppto) AS budgetPpto
+        MAX(p.id_ppto) AS budgetPpto,
+        MAX(p.id_detalle_ppto) AS budgetIdDetallePpto,
+        SUM(p.cobrado_item) AS budgetValorAsignado
       FROM sys_detalle_costo d
       LEFT JOIN sys_oc_ppto p ON p.id_detalle_orden = d.id_detalle
       WHERE d.id_orden = ?
@@ -1419,7 +1428,7 @@ export class CostOrdersRepository {
       if (sourceIds.some((id) => !headersById.has(id))) return 'invalid-source';
 
       const [details] = await connection.execute<CostOrderDetailRow[]>(
-        `SELECT id_orden AS idOrden, id_detalle AS idDetalle, detalle, cantidad, valor, total, 0 AS hasBudget, NULL AS budgetTipo, NULL AS budgetPpto
+        `SELECT id_orden AS idOrden, id_detalle AS idDetalle, detalle, cantidad, valor, total, 0 AS hasBudget, NULL AS budgetTipo, NULL AS budgetPpto, NULL AS budgetIdDetallePpto, NULL AS budgetValorAsignado
          FROM sys_detalle_costo
          WHERE id_orden IN (${placeholders})
          ORDER BY id_orden, id_detalle
@@ -1579,10 +1588,72 @@ export class CostOrdersRepository {
     });
   }
 
-  // Inserta cabecera + detalle en una transacción y devuelve el id de la nueva orden.
-  async createOrder(header: NewCostOrderHeader, details: NewCostOrderDetail[]): Promise<number> {
-    return this.db.transaction(async (connection: PoolConnection) => {
-      const [headerResult] = await connection.execute<ResultSetHeader>(
+  // Inserta cabecera + detalles manuales/presupuesto en una transacción y devuelve el id de la nueva orden.
+  async createOrder(
+    header: NewCostOrderHeader,
+    details: NewCostOrderDetail[],
+    budgetDetails: { tipo: number; ppto: number; idDetallePpto: number; detalle: string; cantidad: number; valorAsignado: number }[] = [],
+  ): Promise<CreateOrderResult> {
+    if (budgetDetails.some((item) => item.tipo !== budgetDetails[0]?.tipo)) return 'budget-type-mismatch';
+
+    try {
+      return await this.db.transaction(async (connection: PoolConnection) => {
+        const budgetRowsToInsert: { tipo: number; ppto: number; idDetallePpto: number; detalle: string; cantidad: number; valorAsignado: number; estado: number | null; availableExpr: string; detailTable: string; detailId: string; headerTable: string; headerId: string; headerStatusColumn: string }[] = [];
+        const requestedByBudgetDetail = new Map<string, number>();
+
+        for (const item of budgetDetails) {
+        const s = BUDGET_STRUCTURES[item.tipo];
+        if (!s) return 'budget-unavailable';
+        const availableExpr = item.tipo === 7
+          ? `(${s.totalExpr} / ((COALESCE((SELECT porcentaje_interna FROM sys_data_billing LIMIT 1), 0) / 100) + 1)) - COALESCE(d.valor_asignado_oc, 0)`
+          : `${s.totalExpr} - COALESCE(d.valor_asignado_oc, 0)`;
+        const providerCondition = item.tipo === 7 ? '' : `AND ${s.providerExpr} = ?`;
+        const budgetParams = item.tipo === 7
+          ? [item.ppto, header.idCliente]
+          : [item.ppto, header.idCliente, header.idProveedor];
+
+        const [budgetHeaderRows] = await connection.execute<(RowDataPacket & { id: number; estado: number | null })[]>(
+          `SELECT p.${s.headerId} AS id, ${s.stateExpr} AS estado
+           FROM ${s.headerTable} p
+           WHERE p.${s.headerId} = ?
+             AND ${s.clientExpr} = ?
+             ${providerCondition}
+             AND ${s.stateExpr} NOT IN (${BUDGET_STATUS.CANCELED}, ${BUDGET_STATUS.CREDIT_NOTE})
+           FOR UPDATE`,
+          budgetParams,
+        );
+        const budgetHeader = budgetHeaderRows[0];
+        if (!budgetHeader) return 'budget-unavailable';
+
+        const [budgetDetailRows] = await connection.execute<(RowDataPacket & { idDetalle: number; disponible: number })[]>(
+          `SELECT d.${s.detailId} AS idDetalle, ${availableExpr} AS disponible
+           FROM ${s.headerTable} p
+           INNER JOIN ${s.detailTable} d ON p.${s.headerId} = d.${s.detailJoinAlias}
+           WHERE p.${s.headerId} = ? AND d.${s.detailId} = ?
+           FOR UPDATE`,
+          [item.ppto, item.idDetallePpto],
+        );
+        const budgetDetail = budgetDetailRows[0];
+        if (!budgetDetail) return 'budget-unavailable';
+
+        const key = `${item.tipo}:${item.ppto}:${item.idDetallePpto}`;
+        const requested = this.round2((requestedByBudgetDetail.get(key) ?? 0) + item.valorAsignado);
+        requestedByBudgetDetail.set(key, requested);
+        if (Number(budgetDetail.disponible ?? 0) + 0.0001 < requested) return 'unavailable';
+
+        budgetRowsToInsert.push({
+          ...item,
+          estado: budgetHeader.estado,
+          availableExpr,
+          detailTable: s.detailTable,
+          detailId: s.detailId,
+          headerTable: s.headerTable,
+          headerId: s.headerId,
+          headerStatusColumn: s.headerStatusColumn,
+        });
+      }
+
+        const [headerResult] = await connection.execute<ResultSetHeader>(
         `INSERT INTO sys_orden_costos
           (fecha, id_cliente, id_proveedor, id_producto, id_campana, id_servicio,
            id_estado, id_usuario, id_usuario_mod, tipo, observacion,
@@ -1595,9 +1666,9 @@ export class CostOrdersRepository {
           header.porcIva, header.porcDescuento, header.valor, header.total, header.valor,
         ],
       );
-      const orderId = headerResult.insertId;
+        const orderId = headerResult.insertId;
 
-      if (details.length > 0) {
+        if (details.length > 0) {
         const placeholders = details.map(() => '(?, ?, ?, ?, ?)').join(', ');
         const params: (string | number)[] = [];
         for (const d of details) {
@@ -1609,7 +1680,56 @@ export class CostOrdersRepository {
         );
       }
 
-      return orderId;
-    });
+        for (const item of budgetRowsToInsert) {
+        const [budgetUpdate] = await connection.execute<ResultSetHeader>(
+          `UPDATE ${item.detailTable} d
+           SET valor_asignado_oc = COALESCE(d.valor_asignado_oc, 0) + ?,
+               ordcos_id = ?
+           WHERE d.${item.detailId} = ? AND (${item.availableExpr}) >= ?`,
+          [item.valorAsignado, orderId, item.idDetallePpto, item.valorAsignado],
+        );
+        if (budgetUpdate.affectedRows !== 1) throw new CreateOrderRollbackError('unavailable');
+
+        if (Number(item.estado) === BUDGET_STATUS.ACTIVE) {
+          await connection.execute<ResultSetHeader>(
+            `UPDATE ${item.headerTable}
+             SET ${item.headerStatusColumn} = ?
+             WHERE ${item.headerId} = ? AND ${item.headerStatusColumn} = ?`,
+            [BUDGET_STATUS.PRINTED, item.ppto, BUDGET_STATUS.ACTIVE],
+          );
+        }
+
+        const [detailResult] = await connection.execute<ResultSetHeader>(
+          `INSERT INTO sys_detalle_costo (id_orden, detalle, cantidad, valor, total, total_cobrado)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [orderId, item.detalle, item.cantidad, this.round2(item.valorAsignado / item.cantidad), item.valorAsignado, item.valorAsignado],
+        );
+
+        await connection.execute<ResultSetHeader>(
+          `INSERT INTO sys_oc_ppto (id_orden, id_ppto, id_detalle_ppto, id_detalle_orden, modulo, cobrado_item)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [orderId, item.ppto, item.idDetallePpto, detailResult.insertId, item.tipo, item.valorAsignado],
+        );
+      }
+
+        if (budgetRowsToInsert.length > 0) {
+        await connection.execute<ResultSetHeader>(
+          `UPDATE sys_orden_costos
+           SET tipo_ppto = ?,
+               cobrado = (SELECT COALESCE(SUM(cobrado_item), 0) FROM sys_oc_ppto WHERE id_orden = ?),
+               faltante = GREATEST(valor - (SELECT COALESCE(SUM(cobrado_item), 0) FROM sys_oc_ppto WHERE id_orden = ?), 0),
+               id_usuario_mod = ?,
+               fecha_mod = NOW()
+           WHERE id_orden = ?`,
+          [budgetRowsToInsert[0].tipo, orderId, orderId, header.idUsuario, orderId],
+        );
+      }
+
+        return orderId;
+      });
+    } catch (error) {
+      if (error instanceof CreateOrderRollbackError) return error.result;
+      throw error;
+    }
   }
 }

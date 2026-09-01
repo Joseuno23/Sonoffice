@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
+import AlertMessage from '../components/AlertMessage';
 import Badge from '../components/Badge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import PageHeader from '../components/PageHeader';
@@ -250,7 +251,7 @@ export default function SystemUsers() {
     <>
       <PageHeader crumb="Sistema · Usuarios" title="Usuarios del sistema" sub="Administra cuentas, roles, áreas y estados de acceso." primary={{ label: 'Nuevo usuario', onClick: openCreate }} />
 
-      {message && <div style={{ marginBottom: 14, padding: '11px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, color: message.type === 'error' ? '#b91c1c' : '#047857', background: message.type === 'error' ? 'rgba(239,68,68,.10)' : 'rgba(16,185,129,.12)', border: `1px solid ${message.type === 'error' ? 'rgba(239,68,68,.18)' : 'rgba(16,185,129,.18)'}` }}>{message.text}</div>}
+      {message && <AlertMessage type={message.type}>{message.text}</AlertMessage>}
 
       <div style={card}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border,#e5e8ec)', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>

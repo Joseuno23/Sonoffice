@@ -3,6 +3,7 @@ import { PermissionsService } from '../permissions/permissions.service';
 import { BUDGET_STATUS, BUDGET_STRUCTURES, COST_ORDER_STATUS, CostOrderFilters, CostOrdersRepository } from './cost-orders.repository';
 import {
   CostOrderBudgetAttachPayload,
+  CostOrderBudgetSearchQuery,
   CostOrderCompensateData,
   CostOrderCompensatePayload,
   CostOrderCompensateQuery,
@@ -302,6 +303,40 @@ export class CostOrdersService {
 
       const first = rows[0];
       const validation = this.validateBudgetForOrder(order, tipo, first);
+      if (validation) return { success: false, data: null, message: validation, errorCode: 'COST_ORDERS_VALIDATION' };
+
+      return {
+        success: true,
+        data: rows.map((row) => ({
+          idPpto: Number(row.id),
+          idDetallePpto: Number(row.idDetalle),
+          detalle: row.detalle,
+          total: Number(row.total ?? 0),
+          valorAsignadoOc: Number(row.valorAsignadoOc ?? 0),
+          ordenCosto: Number(row.ordenCosto ?? 0),
+          disponible: this.round2(Number(row.disponible ?? 0)),
+        })),
+        message: null,
+      };
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async getBudgetLinesForCreate(query: CostOrderBudgetSearchQuery): Promise<CostOrderResponse<any[]>> {
+    const idCliente = this.toPositiveInteger(query.idCliente);
+    const idProveedor = this.toPositiveInteger(query.idProveedor);
+    const tipo = this.toPositiveInteger(query.tipo);
+    const ppto = this.toPositiveInteger(query.ppto);
+    if (!idCliente || !idProveedor || !tipo || !ppto || !BUDGET_STRUCTURES[tipo]) {
+      return { success: false, data: null, message: 'Cliente, proveedor, tipo de presupuesto y número son obligatorios', errorCode: 'COST_ORDERS_VALIDATION' };
+    }
+
+    try {
+      const rows = await this.costOrdersRepository.findBudgetLines(tipo, ppto);
+      if (!rows.length) return { success: true, data: [], message: 'No hay información disponible' };
+
+      const validation = this.validateBudgetForOrder({ idCliente, idProveedor }, tipo, rows[0]);
       if (validation) return { success: false, data: null, message: validation, errorCode: 'COST_ORDERS_VALIDATION' };
 
       return {
@@ -667,6 +702,16 @@ export class CostOrdersService {
     if (details === null) {
       return { success: false, data: null, message: 'El detalle de la orden es inválido', errorCode: 'COST_ORDERS_VALIDATION' };
     }
+    const budgetDetails = this.normalizeBudgetDetails(payload.budgetDetails);
+    if (budgetDetails === null) {
+      return { success: false, data: null, message: 'El detalle de presupuesto es inválido', errorCode: 'COST_ORDERS_VALIDATION' };
+    }
+    if (budgetDetails.some((item) => item.tipo !== budgetDetails[0]?.tipo)) {
+      return { success: false, data: null, message: 'Esta orden fue creada para presupuestos de otro tipo', errorCode: 'COST_ORDERS_VALIDATION' };
+    }
+    if (!details.length && !budgetDetails.length) {
+      return { success: false, data: null, message: 'Agrega al menos un detalle a la orden', errorCode: 'COST_ORDERS_VALIDATION' };
+    }
 
     try {
       // Validar existencia de cliente/proveedor (evita FKs basura).
@@ -677,8 +722,28 @@ export class CostOrdersService {
       if (!clientOk) return { success: false, data: null, message: 'El cliente seleccionado no existe o está inactivo', errorCode: 'COST_ORDERS_VALIDATION' };
       if (!providerOk) return { success: false, data: null, message: 'El proveedor seleccionado no existe o está inactivo', errorCode: 'COST_ORDERS_VALIDATION' };
 
+      const budgetDetailsForCreate: { tipo: number; ppto: number; idDetallePpto: number; detalle: string; cantidad: number; valorAsignado: number }[] = [];
+      const requestedByBudgetDetail = new Map<string, number>();
+      for (const item of budgetDetails) {
+        const rows = await this.costOrdersRepository.findBudgetLines(item.tipo, item.ppto);
+        const budgetLine = rows.find((row) => Number(row.idDetalle) === item.idDetallePpto);
+        if (!budgetLine) return { success: false, data: null, message: 'El detalle de presupuesto no existe', errorCode: 'COST_ORDERS_VALIDATION' };
+
+        const validation = this.validateBudgetForOrder({ idCliente, idProveedor }, item.tipo, budgetLine);
+        if (validation) return { success: false, data: null, message: validation, errorCode: 'COST_ORDERS_VALIDATION' };
+
+        const key = `${item.tipo}:${item.ppto}:${item.idDetallePpto}`;
+        const requested = this.round2((requestedByBudgetDetail.get(key) ?? 0) + item.valorAsignado);
+        requestedByBudgetDetail.set(key, requested);
+        const disponible = this.round2(Number(budgetLine.disponible ?? 0));
+        if (disponible <= 0) return { success: false, data: null, message: 'El detalle de presupuesto no tiene saldo disponible', errorCode: 'COST_ORDERS_VALIDATION' };
+        if (requested > disponible) return { success: false, data: null, message: 'El valor asignado supera el saldo disponible del presupuesto', errorCode: 'COST_ORDERS_VALIDATION' };
+
+        budgetDetailsForCreate.push({ ...item, detalle: budgetLine.detalle });
+      }
+
       // 4) Cálculo de totales (misma fórmula del legacy ValorTotal).
-      const valor = details.reduce((sum, d) => sum + d.total, 0);
+      const valor = details.reduce((sum, d) => sum + d.total, 0) + budgetDetailsForCreate.reduce((sum, d) => sum + d.valorAsignado, 0);
       const descuento = valor * (porcDescuento / 100);
       const iva = (valor - descuento) * (porcIva / 100);
       const total = valor - descuento + iva;
@@ -696,7 +761,11 @@ export class CostOrdersService {
           total: this.round2(total),
         },
         details,
+        budgetDetailsForCreate,
       );
+      if (id === 'budget-unavailable') return { success: false, data: null, message: 'El presupuesto ya no está disponible para esta orden', errorCode: 'COST_ORDERS_VALIDATION' };
+      if (id === 'budget-type-mismatch') return { success: false, data: null, message: 'Esta orden fue creada para presupuestos de otro tipo', errorCode: 'COST_ORDERS_VALIDATION' };
+      if (id === 'unavailable') return { success: false, data: null, message: 'El valor asignado supera el saldo disponible del presupuesto', errorCode: 'COST_ORDERS_VALIDATION' };
 
       return { success: true, data: { id }, message: 'Orden de costo creada correctamente' };
     } catch (error) {
@@ -1015,6 +1084,8 @@ export class CostOrdersService {
         hasBudget: Number(d.hasBudget) === 1,
         budgetTipo: num(d.budgetTipo),
         budgetPpto: num(d.budgetPpto),
+        budgetIdDetallePpto: num(d.budgetIdDetallePpto),
+        budgetValorAsignado: num(d.budgetValorAsignado),
       })),
       permittedActions: this.resolvePermittedActions(roleActions, num(header.idEstado)),
     };
@@ -1124,7 +1195,7 @@ export class CostOrdersService {
     return intersection / Math.max(left.size, right.size);
   }
 
-  private validateBudgetForOrder(order: CostOrderHeaderRow, tipo: number, budget: { idCliente: unknown; idProveedor: unknown; estado: unknown }): string | null {
+  private validateBudgetForOrder(order: Pick<CostOrderHeaderRow, 'idCliente' | 'idProveedor'>, tipo: number, budget: { idCliente: unknown; idProveedor: unknown; estado: unknown }): string | null {
     if (Number(order.idCliente) !== Number(budget.idCliente)) return 'El presupuesto pertenece a otro cliente';
     if (tipo !== 7 && Number(order.idProveedor) !== Number(budget.idProveedor)) return 'El presupuesto pertenece a otro proveedor';
     const estado = Number(budget.estado);
@@ -1168,6 +1239,25 @@ export class CostOrdersService {
       const valor = this.toNumber(item.valor, NaN);
       if (!detalle || !cantidad || !Number.isFinite(valor) || valor < 0) return null;
       result.push({ detalle, cantidad, valor: this.round2(valor), total: this.round2(valor * cantidad) });
+    }
+    return result;
+  }
+
+  private normalizeBudgetDetails(value: unknown): { tipo: number; ppto: number; idDetallePpto: number; cantidad: number; valorAsignado: number }[] | null {
+    if (value === undefined || value === null) return [];
+    if (!Array.isArray(value)) return null;
+
+    const result: { tipo: number; ppto: number; idDetallePpto: number; cantidad: number; valorAsignado: number }[] = [];
+    for (const raw of value) {
+      if (typeof raw !== 'object' || raw === null) return null;
+      const item = raw as Record<string, unknown>;
+      const tipo = this.toPositiveInteger(item.tipo);
+      const ppto = this.toPositiveInteger(item.ppto);
+      const idDetallePpto = this.toPositiveInteger(item.idDetallePpto);
+      const cantidad = this.toPositiveInteger(item.cantidad);
+      const valorAsignado = this.toNumber(item.valorAsignado, NaN);
+      if (!tipo || !ppto || !idDetallePpto || !cantidad || !Number.isFinite(valorAsignado) || valorAsignado <= 0 || !BUDGET_STRUCTURES[tipo]) return null;
+      result.push({ tipo, ppto, idDetallePpto, cantidad, valorAsignado: this.round2(valorAsignado) });
     }
     return result;
   }

@@ -1,0 +1,849 @@
+%PDF-1.4
+%âãÏÓ
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R 9 0 R 11 0 R 13 0 R 15 0 R 17 0 R] /Count 7 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Length 2897 >>
+stream
+BT
+/F1 9.5 Tf
+42 800 Td
+(Manual de administración ? VM Sonoffice) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Este manual explica cómo administrar la instalación de Sonoffice ERP v3.0 en la máquina virtual) Tj
+0 -13 Td
+(Ubuntu de la red local. Está pensado para operación diaria: saber dónde está la aplicación,) Tj
+0 -13 Td
+(cómo revisar estado, cómo detener/arrancar servicios y cómo desplegar cambios que se trabajan) Tj
+0 -13 Td
+(primero en local y se suben a GitHub.) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Resumen rápido) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(| Elemento | Valor |) Tj
+0 -13 Td
+(|---|---|) Tj
+0 -13 Td
+(| Servidor VM | srv-erp-sonoffice |) Tj
+0 -13 Td
+(| IP LAN | 10.16.0.93 |) Tj
+0 -13 Td
+(| Usuario Linux | sonoffice |) Tj
+0 -13 Td
+(| Sistema operativo | Ubuntu 26.04 LTS |) Tj
+0 -13 Td
+(| App en servidor | /home/sonoffice/apps/sonoffice |) Tj
+0 -13 Td
+(| Frontend publicado | /var/www/sonoffice |) Tj
+0 -13 Td
+(| API | NestJS con PM2, proceso sonoffice-api |) Tj
+0 -13 Td
+(| Puerto API interno | 3001 |) Tj
+0 -13 Td
+(| Acceso web actual | http://10.16.0.93/ |) Tj
+0 -13 Td
+(| Base de datos legacy | MariaDB bd_medios en 10.16.0.94:3306 |) Tj
+0 -13 Td
+(| Usuario BD | adminop |) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(> Regla clave: /Erp es el sistema legacy y se usa como referencia funcional. La nueva) Tj
+0 -13 Td
+(implementación vive en apps/web y apps/api.) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Arquitectura de despliegue) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Navegador LAN) Tj
+0 -13 Td
+(  -> http://10.16.0.93/) Tj
+0 -13 Td
+(  -> Nginx :80) Tj
+0 -13 Td
+(      -> Frontend estático: /var/www/sonoffice) Tj
+0 -13 Td
+(      -> Proxy /api/* hacia http://127.0.0.1:3001/api/*) Tj
+0 -13 Td
+(          -> API NestJS administrada por PM2) Tj
+0 -13 Td
+(              -> MariaDB legacy 10.16.0.94:3306 / bd_medios) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Ubicaciones importantes) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(| Ruta | Uso |) Tj
+0 -13 Td
+(|---|---|) Tj
+0 -13 Td
+(| /home/sonoffice/apps/sonoffice | Repositorio clonado desde GitHub. Acá se hace git pull, npm install,) Tj
+0 -13 Td
+(npm run build. |) Tj
+0 -13 Td
+(| /home/sonoffice/apps/sonoffice/.env | Variables de entorno de la API: puerto, BD, credenciales y) Tj
+0 -13 Td
+(correo. Permisos 600. |) Tj
+0 -13 Td
+(| /home/sonoffice/apps/sonoffice/apps/api/dist | Build compilado de la API NestJS. |) Tj
+0 -13 Td
+(| /home/sonoffice/apps/sonoffice/apps/web/dist | Build compilado del frontend React. |) Tj
+0 -13 Td
+(| /var/www/sonoffice | Carpeta que Nginx sirve al navegador. Se sincroniza desde apps/web/dist. |) Tj
+0 -13 Td
+(| /etc/nginx/sites-available/sonoffice | Configuración principal de Nginx para la app. |) Tj
+0 -13 Td
+(| /home/sonoffice/.pm2 | Estado y logs de PM2 para procesos Node. |) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Comandos de estado) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Conectarse por SSH a la VM:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(ssh sonoffice@10.16.0.93) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 1477 >>
+stream
+BT
+/F1 9.5 Tf
+42 800 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Ver estado de la API:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(pm2 status) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Ver logs recientes de la API:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(pm2 logs sonoffice-api --lines 100 --nostream) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Validar que la API responde y conecta a la base de datos:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(curl -i http://127.0.0.1:3001/api/health/db) Tj
+0 -13 Td
+(curl -i http://10.16.0.93/api/health/db) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Resultado esperado:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+({"success":true,"data":{"database":"connected"},"message":null}) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Ver estado de Nginx:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(systemctl status nginx --no-pager) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Validar configuración de Nginx:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(sudo nginx -t) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Cómo detener y arrancar la API) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Detener la API:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(pm2 stop sonoffice-api) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Arrancar la API:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(pm2 start sonoffice-api) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Reiniciar la API después de cambios:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(pm2 restart sonoffice-api) Tj
+0 -13 Td
+() Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 1800 >>
+stream
+BT
+/F1 9.5 Tf
+42 800 Td
+() Tj
+0 -13 Td
+(Guardar el estado de PM2 para que sobreviva reinicios:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(pm2 save) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(> Importante: PM2 ya está configurado con systemd. Si la VM se reinicia, debe restaurar el) Tj
+0 -13 Td
+(proceso sonoffice-api automáticamente.) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Cómo detener y arrancar el frontend) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(El frontend no corre como proceso Node en producción. Es estático y lo sirve Nginx desde) Tj
+0 -13 Td
+(/var/www/sonoffice.) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Para ?detener el frontend?, se detiene Nginx:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(sudo systemctl stop nginx) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Para volver a publicarlo:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(sudo systemctl start nginx) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Para recargar Nginx después de cambiar configuración:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(sudo systemctl reload nginx) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Para reiniciar Nginx completo:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(sudo systemctl restart nginx) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Flujo correcto para desplegar ajustes desde local) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Este es el flujo estándar. Primero se trabaja y valida en la máquina local, luego se sube a) Tj
+0 -13 Td
+(GitHub, y finalmente se despliega en la VM.) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(1. En la máquina local de desarrollo) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Entrar al repo local:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(cd /Users/josenarvaez/Projects/sonoffice) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Revisar estado:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(git status --short --branch) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 8 0 R >>
+endobj
+10 0 obj
+<< /Length 1626 >>
+stream
+BT
+/F1 9.5 Tf
+42 800 Td
+(Ejecutar validaciones mínimas:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(npm run typecheck) Tj
+0 -13 Td
+(npm run build) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Crear commit:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(git add <archivos-cambiados>) Tj
+0 -13 Td
+(git commit -m "feat\(scope\): descripcion corta") Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Subir a GitHub:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(git push origin main) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(> No subas cambios si npm run build falla. Si falla, corregí primero. La VM debe recibir código) Tj
+0 -13 Td
+(ya validado.) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(2. En la VM de producción/local LAN) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Entrar al repo clonado:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(cd /home/sonoffice/apps/sonoffice) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Traer últimos cambios:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(git pull --ff-only origin main) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Instalar dependencias si cambiaron package.json o package-lock.json:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(npm install) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Compilar API y frontend:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(npm run build) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Publicar frontend compilado en Nginx:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(sudo rsync -a --delete /home/sonoffice/apps/sonoffice/apps/web/dist/ /var/www/sonoffice/) Tj
+0 -13 Td
+(sudo chown -R www-data:www-data /var/www/sonoffice) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Reiniciar API:) Tj
+0 -13 Td
+() Tj
+ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 10 0 R >>
+endobj
+12 0 obj
+<< /Length 1916 >>
+stream
+BT
+/F1 9.5 Tf
+42 800 Td
+() Tj
+0 -13 Td
+(pm2 restart sonoffice-api) Tj
+0 -13 Td
+(pm2 save) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Validar despliegue:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(curl -i http://127.0.0.1:3001/api/health/db) Tj
+0 -13 Td
+(curl -i http://10.16.0.93/api/health/db) Tj
+0 -13 Td
+(curl -I http://10.16.0.93/) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Abrir en navegador:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(http://10.16.0.93/) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Comando compacto de despliegue en VM) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Cuando el cambio ya está en GitHub y solo querés actualizar la VM:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(cd /home/sonoffice/apps/sonoffice \\) Tj
+0 -13 Td
+(  && git pull --ff-only origin main \\) Tj
+0 -13 Td
+(  && npm install \\) Tj
+0 -13 Td
+(  && npm run build \\) Tj
+0 -13 Td
+(  && sudo rsync -a --delete apps/web/dist/ /var/www/sonoffice/ \\) Tj
+0 -13 Td
+(  && sudo chown -R www-data:www-data /var/www/sonoffice \\) Tj
+0 -13 Td
+(  && pm2 restart sonoffice-api \\) Tj
+0 -13 Td
+(  && pm2 save \\) Tj
+0 -13 Td
+(  && curl -i http://127.0.0.1:3001/api/health/db) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Si algún paso falla, NO sigas a mano sin entender el error. Copiá la salida y corregí la causa.) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Variables de entorno) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(El archivo .env vive en:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(/home/sonoffice/apps/sonoffice/.env) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Valores principales actuales:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(PORT=3001) Tj
+0 -13 Td
+(DB_HOST=10.16.0.94) Tj
+0 -13 Td
+(DB_PORT=3306) Tj
+0 -13 Td
+(DB_NAME=bd_medios) Tj
+0 -13 Td
+(DB_USER=adminop) Tj
+0 -13 Td
+(BREVO_SENDER_EMAIL=sistemaop@sonovista.co) Tj
+0 -13 Td
+(BREVO_SENDER_NAME=Sonoffice) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(No imprimir ni compartir DB_PASSWORD ni BREVO_API_KEY.) Tj
+ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 12 0 R >>
+endobj
+14 0 obj
+<< /Length 1684 >>
+stream
+BT
+/F1 9.5 Tf
+42 800 Td
+() Tj
+0 -13 Td
+(Para revisar sin exponer secretos:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(grep -E "^\(PORT|DB_HOST|DB_PORT|DB_NAME|DB_USER|BREVO_SENDER\)") Tj
+0 -13 Td
+(/home/sonoffice/apps/sonoffice/.env) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Nginx) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Archivo de configuración:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(/etc/nginx/sites-available/sonoffice) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Validar y recargar:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(sudo nginx -t) Tj
+0 -13 Td
+(sudo systemctl reload nginx) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(El server block actual debe servir:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(- / desde /var/www/sonoffice) Tj
+0 -13 Td
+(- /api/ hacia http://127.0.0.1:3001/api/) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Cuando se cree DNS local, agregar el dominio en server_name, por ejemplo:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(server_name sonoffice.lan 10.16.0.93 srv-erp-sonoffice;) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(DNS local pendiente) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Hoy el acceso es por IP:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(http://10.16.0.93/) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Para usar nombre en toda la red, crear en el DNS interno 10.16.0.14 un registro A:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(sonoffice.lan -> 10.16.0.93) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Después validar:) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(nslookup sonoffice.lan 10.16.0.14) Tj
+0 -13 Td
+(curl -I http://sonoffice.lan/) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Troubleshooting rápido) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(| Problema | Validar | Acción típica |) Tj
+ET
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 14 0 R >>
+endobj
+16 0 obj
+<< /Length 1302 >>
+stream
+BT
+/F1 9.5 Tf
+42 800 Td
+(|---|---|---|) Tj
+0 -13 Td
+(| No abre la web | systemctl status nginx --no-pager | sudo systemctl restart nginx |) Tj
+0 -13 Td
+(| Web abre pero API falla | pm2 status | pm2 restart sonoffice-api |) Tj
+0 -13 Td
+(| API no conecta a BD | curl http://127.0.0.1:3001/api/health/db | Revisar .env, red y acceso a) Tj
+0 -13 Td
+(10.16.0.94:3306 |) Tj
+0 -13 Td
+(| Cambios frontend no aparecen | Revisar /var/www/sonoffice | Rehacer npm run build + rsync |) Tj
+0 -13 Td
+(| Pull falla por cambios locales en VM | git status --short | No pisar a ciegas; revisar qué archivo) Tj
+0 -13 Td
+(cambió |) Tj
+0 -13 Td
+(| Nginx no recarga | sudo nginx -t | Corregir sintaxis antes de reload |) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(Checklist después de cada despliegue) Tj
+0 -13 Td
+() Tj
+0 -13 Td
+(- [ ] git pull --ff-only origin main terminó sin errores.) Tj
+0 -13 Td
+(- [ ] npm install terminó sin errores.) Tj
+0 -13 Td
+(- [ ] npm run build terminó sin errores.) Tj
+0 -13 Td
+(- [ ] Frontend sincronizado a /var/www/sonoffice.) Tj
+0 -13 Td
+(- [ ] pm2 restart sonoffice-api ejecutado.) Tj
+0 -13 Td
+(- [ ] curl http://127.0.0.1:3001/api/health/db devuelve database: connected.) Tj
+0 -13 Td
+(- [ ] http://10.16.0.93/ abre en navegador.) Tj
+0 -13 Td
+(- [ ] Login y menú lateral probados con usuario real.) Tj
+ET
+endstream
+endobj
+17 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 16 0 R >>
+endobj
+xref
+0 18
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000161 00000 n 
+0000000231 00000 n 
+0000003180 00000 n 
+0000003306 00000 n 
+0000004835 00000 n 
+0000004961 00000 n 
+0000006813 00000 n 
+0000006939 00000 n 
+0000008618 00000 n 
+0000008746 00000 n 
+0000010715 00000 n 
+0000010843 00000 n 
+0000012580 00000 n 
+0000012708 00000 n 
+0000014063 00000 n 
+trailer
+<< /Size 18 /Root 1 0 R >>
+startxref
+14191
+%%EOF

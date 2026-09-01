@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import AlertMessage from '../components/AlertMessage';
 import PageHeader from '../components/PageHeader';
 import { Icon } from '../lib/icons';
 import { api } from '../services/api';
@@ -199,9 +200,7 @@ export default function RolePermissions() {
                 <button onClick={() => setTab('actions')} style={tabStyle(tab === 'actions')}>Acciones</button>
               </div>
 
-              {message && (
-                <div style={{ margin: '14px 20px 0', padding: '10px 12px', borderRadius: 10, fontSize: 12.5, fontWeight: 600, color: message.type === 'error' ? '#b91c1c' : '#047857', background: message.type === 'error' ? 'rgba(239,68,68,.10)' : 'rgba(16,185,129,.12)', border: `1px solid ${message.type === 'error' ? 'rgba(239,68,68,.18)' : 'rgba(16,185,129,.18)'}` }}>{message.text}</div>
-              )}
+              {message && <AlertMessage type={message.type} style={{ margin: '14px 20px 0', padding: '10px 12px', fontSize: 12.5 }}>{message.text}</AlertMessage>}
 
               {isRoot && (
                 <div style={{ margin: '14px 20px 0', padding: '11px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#4338ca', background: 'rgba(99,102,241,.10)', border: '1px solid rgba(99,102,241,.20)' }}>

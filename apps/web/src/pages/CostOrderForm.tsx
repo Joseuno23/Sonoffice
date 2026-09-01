@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import AlertMessage from '../components/AlertMessage';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { Icon } from '../lib/icons';
 import { fmtMoneyFull } from '../lib/format';
@@ -11,7 +12,7 @@ const inBase: CSSProperties = { width: '100%', height: 44, padding: '0 13px', bo
 const btnGhost: CSSProperties = { height: 40, padding: '0 15px', border: '1px solid var(--border-strong,#d5d9e0)', background: 'var(--surface,#fff)', color: 'var(--fg-2,#334155)', borderRadius: 10, fontWeight: 600, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 };
 
 interface Option { id: number; label: string; }
-interface DetailLine { idDetalle?: number; detalle: string; cantidad: string; valor: string; hasBudget?: boolean; budgetTipo?: number | null; budgetPpto?: number | null; }
+interface DetailLine { idDetalle?: number; detalle: string; cantidad: string; valor: string; hasBudget?: boolean; budgetTipo?: number | null; budgetPpto?: number | null; budgetIdDetallePpto?: number | null; budgetValorAsignado?: number | null; }
 interface BudgetLine { idPpto: number; idDetallePpto: number; detalle: string; total: number; valorAsignadoOc: number; ordenCosto: number; disponible: number; cantidad?: string; asignado?: string; }
 
 const budgetTypes: Option[] = [
@@ -90,6 +91,7 @@ function SearchSelect({ value, label, placeholder, fetcher, onSelect }: {
 
 export default function CostOrderForm() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams();
   const isEdit = !!id;
   const [loading, setLoading] = useState(isEdit);
@@ -120,6 +122,14 @@ export default function CostOrderForm() {
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [detailTooltip, setDetailTooltip] = useState<{ index: number; text: string } | null>(null);
+
+  useEffect(() => {
+    const state = location.state as { createdOrderMessage?: string } | null;
+    if (!isEdit || !state?.createdOrderMessage) return;
+    setMessage({ type: 'success', text: state.createdOrderMessage });
+    navigate(location.pathname, { replace: true, state: null });
+  }, [isEdit, location.pathname, location.state, navigate]);
 
   // Carga la orden en modo edición.
   useEffect(() => {
@@ -142,7 +152,7 @@ export default function CostOrderForm() {
         setObservacion(o.observacion || '');
         setPorcIva(o.porcIva === null || o.porcIva === undefined ? '' : String(o.porcIva));
         setPorcDescuento(String(o.porcDescuento ?? 0));
-        setDetalles(o.detalles.length ? o.detalles.map((d: any) => ({ idDetalle: d.idDetalle, detalle: d.detalle, cantidad: String(d.cantidad), valor: String(d.valor), hasBudget: !!d.hasBudget, budgetTipo: d.budgetTipo ?? null, budgetPpto: d.budgetPpto ?? null })) : [{ detalle: '', cantidad: '1', valor: '' }]);
+        setDetalles(o.detalles.length ? o.detalles.map((d: any) => ({ idDetalle: d.idDetalle, detalle: d.detalle, cantidad: String(d.cantidad), valor: String(d.valor), hasBudget: !!d.hasBudget, budgetTipo: d.budgetTipo ?? null, budgetPpto: d.budgetPpto ?? null, budgetIdDetallePpto: d.budgetIdDetallePpto ?? null, budgetValorAsignado: d.budgetValorAsignado ?? null })) : [{ detalle: '', cantidad: '1', valor: '' }]);
         setPermittedActions(o.permittedActions || []);
       })
       .catch(() => { if (live) setMessage({ type: 'error', text: 'No se pudo cargar la orden.' }); })
@@ -181,10 +191,19 @@ export default function CostOrderForm() {
     setCliente(opt);
     setIdCampana('');
     setIdProducto('');
+    setBudgetLines([]);
+    if (!isEdit) setDetalles((list) => list.filter((line) => !line.hasBudget));
+  };
+  const onProveedorChange = (opt: Option | null) => {
+    setProveedor(opt);
+    setBudgetLines([]);
+    if (!isEdit) setDetalles((list) => list.filter((line) => !line.hasBudget));
   };
   const onTipoChange = (t: 'I' | 'E') => {
     setTipo(t);
     setIdServicio('');
+    setBudgetLines([]);
+    if (!isEdit) setDetalles((list) => list.filter((line) => !line.hasBudget));
   };
 
   const setLine = (i: number, k: keyof DetailLine, v: string) =>
@@ -194,7 +213,7 @@ export default function CostOrderForm() {
     if (!isEdit) return;
     api.getCostOrder(id).then((fresh) => {
       if (!fresh?.success) return;
-      setDetalles(fresh.data.detalles.length ? fresh.data.detalles.map((d: any) => ({ idDetalle: d.idDetalle, detalle: d.detalle, cantidad: String(d.cantidad), valor: String(d.valor), hasBudget: !!d.hasBudget, budgetTipo: d.budgetTipo ?? null, budgetPpto: d.budgetPpto ?? null })) : [{ detalle: '', cantidad: '1', valor: '' }]);
+      setDetalles(fresh.data.detalles.length ? fresh.data.detalles.map((d: any) => ({ idDetalle: d.idDetalle, detalle: d.detalle, cantidad: String(d.cantidad), valor: String(d.valor), hasBudget: !!d.hasBudget, budgetTipo: d.budgetTipo ?? null, budgetPpto: d.budgetPpto ?? null, budgetIdDetallePpto: d.budgetIdDetallePpto ?? null, budgetValorAsignado: d.budgetValorAsignado ?? null })) : [{ detalle: '', cantidad: '1', valor: '' }]);
     }).catch(() => undefined);
   };
   const removeLine = (i: number) => {
@@ -221,12 +240,19 @@ export default function CostOrderForm() {
   const total = valor - descuento + iva;
 
   const validDetails = detalles.filter((l) => !l.hasBudget && l.detalle.trim() && Number(l.cantidad) > 0 && Number(l.valor) >= 0);
-  const hasBudgetDetails = detalles.some((l) => l.hasBudget);
-  const canSubmit = editable && !!cliente && !!proveedor && !!idServicio && !!idCampana && !!idProducto && (validDetails.length > 0 || (isEdit && hasBudgetDetails));
+  const budgetDetails = detalles.filter((l) => l.hasBudget && l.budgetTipo && l.budgetPpto && l.budgetIdDetallePpto && Number(l.cantidad) > 0 && Number(l.budgetValorAsignado) > 0);
+  const currentBudgetTipo = !isEdit ? budgetDetails[0]?.budgetTipo ?? null : null;
+  const hasBudgetDetails = budgetDetails.length > 0;
+  const canSubmit = editable && !!cliente && !!proveedor && !!idServicio && !!idCampana && !!idProducto && (validDetails.length > 0 || hasBudgetDetails);
 
   const searchBudget = () => {
-    if (!isEdit || budgetLoading) return;
+    if (budgetLoading) return;
     setBudgetSubmitted(true);
+    if (!isEdit && (!cliente || !proveedor)) {
+      setBudgetLines([]);
+      setMessage({ type: 'error', text: 'Selecciona cliente y proveedor antes de buscar presupuesto.' });
+      return;
+    }
     if (!budgetTipo) {
       setBudgetLines([]);
       setMessage({ type: 'error', text: 'Selecciona el tipo de presupuesto antes de buscar.' });
@@ -237,9 +263,17 @@ export default function CostOrderForm() {
       setMessage({ type: 'error', text: 'Ingresa el número de presupuesto antes de buscar.' });
       return;
     }
+    if (currentBudgetTipo && Number(budgetTipo) !== currentBudgetTipo) {
+      setBudgetLines([]);
+      setMessage({ type: 'error', text: 'Esta orden fue creada para presupuestos de otro tipo' });
+      return;
+    }
     setBudgetLoading(true);
     setMessage(null);
-    api.getCostOrderBudgetLines(id, budgetTipo, budgetPpto)
+    const request = isEdit
+      ? api.getCostOrderBudgetLines(id, budgetTipo, budgetPpto)
+      : api.getCostOrderBudgetLinesForCreate({ idCliente: cliente?.id, idProveedor: proveedor?.id, tipo: budgetTipo, ppto: budgetPpto });
+    request
       .then((res) => {
         if (res?.success) {
           const lines = res.data || [];
@@ -256,7 +290,36 @@ export default function CostOrderForm() {
     setBudgetLines((list) => list.map((line, idx) => (idx === i ? { ...line, [k]: v } : line)));
 
   const attachBudget = (line: BudgetLine) => {
-    if (!isEdit || budgetSaving || !budgetTipo || !budgetPpto) return;
+    if (budgetSaving || !budgetTipo || !budgetPpto) return;
+    const cantidad = Number(line.cantidad) || 1;
+    const valorAsignado = Number(line.asignado) || 0;
+    if (!isEdit) {
+      if (currentBudgetTipo && Number(budgetTipo) !== currentBudgetTipo) {
+        setMessage({ type: 'error', text: 'Esta orden fue creada para presupuestos de otro tipo' });
+        return;
+      }
+      const exists = detalles.some((detail) => detail.hasBudget && detail.budgetTipo === Number(budgetTipo) && detail.budgetPpto === Number(budgetPpto) && detail.budgetIdDetallePpto === line.idDetallePpto);
+      if (exists) {
+        setMessage({ type: 'error', text: 'Este item ya existe en la orden de costo.' });
+        return;
+      }
+      setDetalles((list) => {
+        const next = list.filter((detail) => detail.hasBudget || detail.detalle.trim() || Number(detail.valor) > 0);
+        return [...next, {
+          detalle: line.detalle,
+          cantidad: String(cantidad),
+          valor: String(valorAsignado / cantidad),
+          hasBudget: true,
+          budgetTipo: Number(budgetTipo),
+          budgetPpto: Number(budgetPpto),
+          budgetIdDetallePpto: line.idDetallePpto,
+          budgetValorAsignado: valorAsignado,
+        }];
+      });
+      setMessage({ type: 'success', text: 'Detalle de presupuesto agregado a la orden.' });
+      setBudgetLines((list) => list.filter((item) => item.idDetallePpto !== line.idDetallePpto));
+      return;
+    }
     setBudgetSaving(line.idDetallePpto);
     setMessage(null);
     api.attachCostOrderBudgetLine(id, {
@@ -264,8 +327,8 @@ export default function CostOrderForm() {
       ppto: Number(budgetPpto),
       idDetallePpto: line.idDetallePpto,
       detalle: line.detalle,
-      cantidad: Number(line.cantidad) || 1,
-      valorAsignado: Number(line.asignado) || 0,
+      cantidad,
+      valorAsignado,
     })
       .then((res) => {
         if (res?.success) {
@@ -295,15 +358,18 @@ export default function CostOrderForm() {
       porcIva: porcIva === '' ? null : Number(porcIva),
       porcDescuento: Number(porcDescuento),
       detalles: validDetails.map((l) => ({ detalle: l.detalle.trim(), cantidad: Number(l.cantidad), valor: Number(l.valor) })),
+      budgetDetails: budgetDetails.map((l) => ({ tipo: l.budgetTipo, ppto: l.budgetPpto, idDetallePpto: l.budgetIdDetallePpto, cantidad: Number(l.cantidad), valorAsignado: Number(l.budgetValorAsignado) })),
     };
     const call = isEdit ? api.updateCostOrder(id, payload) : api.createCostOrder(payload);
     call
       .then((res) => {
         if (res?.success) {
-          setMessage({ type: 'success', text: res.message || (isEdit ? 'Orden actualizada.' : 'Orden creada.') });
           if (!isEdit && res.data?.id) {
-            setTimeout(() => navigate(`/medios/ordenes-costo/${res.data.id}/editar`), 900);
+            const createdMessage = res.message || `Orden #${res.data.id} creada correctamente. Ya podés revisarla o ajustarla desde esta pantalla.`;
+            navigate(`/medios/ordenes-costo/${res.data.id}/editar`, { state: { createdOrderMessage: createdMessage } });
+            return;
           }
+          setMessage({ type: 'success', text: res.message || 'Orden actualizada.' });
         } else {
           setMessage({ type: 'error', text: res?.message || 'No se pudo guardar la orden.' });
         }
@@ -370,9 +436,7 @@ export default function CostOrderForm() {
         </div>
       )}
 
-      {message && (
-        <div style={{ marginBottom: 16, padding: '11px 14px', borderRadius: 10, fontSize: 13.5, fontWeight: 600, color: message.type === 'error' ? '#b91c1c' : '#047857', background: message.type === 'error' ? 'rgba(239,68,68,.10)' : 'rgba(16,185,129,.12)', border: `1px solid ${message.type === 'error' ? 'rgba(239,68,68,.18)' : 'rgba(16,185,129,.18)'}` }}>{message.text}</div>
-      )}
+      {message && <AlertMessage type={message.type} style={{ marginBottom: 16, fontSize: 13.5 }}>{message.text}</AlertMessage>}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 20, alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
@@ -381,7 +445,7 @@ export default function CostOrderForm() {
             <div style={{ fontSize: 13, color: 'var(--muted,#64748b)', margin: '3px 0 18px' }}>Datos principales de la orden</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 18px' }}>
               <SearchSelect value={cliente} label="Cliente" placeholder="Selecciona un cliente" fetcher={api.getCostOrderClients} onSelect={onClienteChange} />
-              <SearchSelect value={proveedor} label="Proveedor" placeholder="Selecciona un proveedor" fetcher={api.getCostOrderProviders} onSelect={setProveedor} />
+              <SearchSelect value={proveedor} label="Proveedor" placeholder="Selecciona un proveedor" fetcher={api.getCostOrderProviders} onSelect={onProveedorChange} />
               <div>
                 <label style={lbl}>Tipo de orden <span style={{ color: '#ef4444' }}>*</span></label>
                 <select value={tipo} onChange={(e) => onTipoChange(e.target.value as 'I' | 'E')} style={inBase}>
@@ -419,8 +483,25 @@ export default function CostOrderForm() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {detalles.map((row, i) => (
                 <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
-                    <input value={row.detalle} onChange={(e) => setLine(i, 'detalle', e.target.value)} disabled={row.hasBudget} title={row.detalle} placeholder={'Detalle ' + (i + 1)} style={{ ...inBase, paddingRight: row.hasBudget ? 42 : inBase.padding, background: row.hasBudget ? 'var(--surface-2,#f7f8fa)' : inBase.background }} />
+                  <div
+                    onMouseEnter={() => { if (row.detalle.trim()) setDetailTooltip({ index: i, text: row.detalle }); }}
+                    onMouseLeave={() => setDetailTooltip((current) => current?.index === i ? null : current)}
+                    onFocus={() => { if (row.detalle.trim()) setDetailTooltip({ index: i, text: row.detalle }); }}
+                    onBlur={() => setDetailTooltip((current) => current?.index === i ? null : current)}
+                    style={{ position: 'relative', flex: 1, minWidth: 0 }}
+                  >
+                    <input
+                      value={row.detalle}
+                      onChange={(e) => setLine(i, 'detalle', e.target.value)}
+                      disabled={row.hasBudget}
+                      placeholder={'Detalle ' + (i + 1)}
+                      style={{ ...inBase, paddingRight: row.hasBudget ? 42 : inBase.padding, background: row.hasBudget ? 'var(--surface-2,#f7f8fa)' : inBase.background }}
+                    />
+                    {detailTooltip?.index === i && (
+                      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 'calc(100% + 8px)', zIndex: 45, padding: '10px 12px', borderRadius: 10, background: 'var(--fg,#0f172a)', color: 'var(--surface,#fff)', boxShadow: 'var(--shadow-lg)', fontSize: 12.5, lineHeight: 1.45, whiteSpace: 'pre-wrap', overflowWrap: 'break-word', pointerEvents: 'none' }}>
+                        {detailTooltip.text}
+                      </div>
+                    )}
                     {row.hasBudget && (
                       <span title={budgetSourceTitle(row)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 22, height: 22, borderRadius: 999, border: '1px solid var(--border-strong,#d5d9e0)', color: 'var(--primary,#0f172a)', background: 'var(--surface,#fff)', display: 'grid', placeItems: 'center', cursor: 'help' }}>
                         <Icon d="M12 16v-4M12 8h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" size={14} sw={2} />
@@ -441,12 +522,12 @@ export default function CostOrderForm() {
             </button>
           </div>
 
-          {isEdit && editable && (
+          {editable && (
             <div style={card}>
               <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--fg,#0f172a)' }}>Presupuesto</div>
               <div style={{ fontSize: 13, color: 'var(--muted,#64748b)', margin: '3px 0 16px' }}>Busca un presupuesto existente y agrega líneas disponibles a esta orden.</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, alignItems: 'end' }}>
-                <div><label style={lbl}>Tipo de presupuesto</label><select value={budgetTipo} onChange={(e) => setBudgetTipo(e.target.value)} style={{ ...inBase, borderColor: budgetSubmitted && !budgetTipo ? '#ef4444' : 'var(--border-strong,#d5d9e0)' }}><option value="">Selecciona tipo</option>{budgetTypes.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select></div>
+                <div><label style={lbl}>Tipo de presupuesto</label><select value={budgetTipo} onChange={(e) => setBudgetTipo(e.target.value)} disabled={!!currentBudgetTipo} style={{ ...inBase, borderColor: budgetSubmitted && !budgetTipo ? '#ef4444' : 'var(--border-strong,#d5d9e0)' }}><option value="">Selecciona tipo</option>{budgetTypes.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select></div>
                 <div><label style={lbl}>Número</label><input value={budgetPpto} onChange={(e) => setBudgetPpto(e.target.value.replace(/[^0-9]/g, ''))} style={{ ...inBase, borderColor: budgetSubmitted && !budgetPpto ? '#ef4444' : 'var(--border-strong,#d5d9e0)' }} /></div>
                 <button onClick={searchBudget} disabled={budgetLoading} style={{ ...btnGhost, height: 44 }}>{budgetLoading ? 'Buscando…' : 'Buscar'}</button>
               </div>
