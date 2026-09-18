@@ -478,6 +478,8 @@ export class CostOrdersRepository {
         d.cantidad,
         d.valor,
         d.total,
+        d.total_cobrado AS totalCobrado,
+        GREATEST(COALESCE(d.total, 0) - COALESCE(d.total_cobrado, 0), 0) AS faltante,
         CASE WHEN COUNT(p.id_orden) > 0 THEN 1 ELSE 0 END AS hasBudget,
         MAX(p.modulo) AS budgetTipo,
         MAX(p.id_ppto) AS budgetPpto,

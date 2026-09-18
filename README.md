@@ -104,6 +104,27 @@ apps/api/
 
 El frontend consume la API mediante el proxy `/api` de Vite.
 
+### Presupuesto Producción Externa
+
+Defaults configurables para migrar el comportamiento legacy del presupuesto tipo 6 sin hardcodear constantes en la lógica de negocio:
+
+- `EXTERNAL_PRODUCTION_BUDGET_DEFAULT_IVA` (default `19`)
+- `EXTERNAL_PRODUCTION_BUDGET_DEFAULT_SPA` (default `10`)
+- `EXTERNAL_PRODUCTION_BUDGET_DEFAULT_IVA_SPA` (default `19`)
+- `EXTERNAL_PRODUCTION_BUDGET_TYPE` (default `6`)
+- `EXTERNAL_PRODUCTION_BUDGET_TPO_DOC` (default `externa`)
+- `EXTERNAL_PRODUCTION_BUDGET_STATUS_ACTIVE` (default `1`)
+- `EXTERNAL_PRODUCTION_BUDGET_STATUS_PRINTED` (default `5`)
+- `EXTERNAL_PRODUCTION_BUDGET_STATUS_CREDIT_NOTE` (default `47`)
+- `EXTERNAL_PRODUCTION_BUDGET_STATUS_CANCELLED` (default `9999`)
+- `EXTERNAL_PRODUCTION_COST_ORDER_STATUS_PRINTED` (default `27`)
+- `EXTERNAL_PRODUCTION_COST_ORDER_STATUS_FINALIZED` (default `8`)
+- `EXTERNAL_PRODUCTION_BUDGET_SERVICE_TYPE` (default `E`)
+- `EXTERNAL_PRODUCTION_BUDGET_SPECIAL_SPA_CLIENT_ID` (default `1339`)
+- `EXTERNAL_PRODUCTION_BUDGET_SPECIAL_SPA` (default `6`)
+- `EXTERNAL_PRODUCTION_BUDGET_SPECIAL_SPA_SERVICE_IDS` (default legacy comma-separated services)
+- `EXTERNAL_PRODUCTION_BUDGET_EDITABLE_INCENTIVE_COST_SERVICE_IDS` (default `160,163,170,173`)
+
 ## Diseño
 
 Se mantiene exactamente el diseño del prototipo original: paleta, tipografías (Inter + JetBrains Mono), modo claro/oscuro, sidebar colapsable con dos estilos, gráficas SVG, skeletons de carga y todas las pantallas.

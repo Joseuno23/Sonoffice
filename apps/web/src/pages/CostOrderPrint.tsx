@@ -31,23 +31,8 @@ function formatDate(value: string | null) {
   return value ? new Date(value + 'T00:00:00').toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: '2-digit' }) : 'Sin fecha';
 }
 
-function Empty({ text }: { text: string }) {
-  return <span style={{ color: 'var(--muted,#64748b)', fontWeight: 500 }}>{text}</span>;
-}
-
-function InfoBlock({ title, party }: { title: string; party: Party }) {
-  return (
-    <div style={{ border: '1px solid var(--border,#e5e8ec)', borderRadius: 14, padding: 14, background: 'var(--surface-2,#f7f8fa)' }}>
-      <div style={label}>{title}</div>
-      <div style={{ ...value, fontSize: 15 }}>{party.name || <Empty text="Sin nombre" />}</div>
-      <div style={{ marginTop: 9, display: 'grid', gap: 5, fontSize: 12.5, color: 'var(--fg-2,#334155)' }}>
-        <span>NIT/CC: {party.nit || 'No registrado'}</span>
-        <span>Dirección: {party.address || 'No registrada'}</span>
-        <span>Ciudad: {party.city || 'No registrada'}</span>
-        <span>Teléfono: {party.phone || 'No registrado'}</span>
-      </div>
-    </div>
-  );
+function CompactRow({ label: rowLabel, value: rowValue }: { label: string; value: string | number | null | undefined }) {
+  return <div style={{ display: 'grid', gridTemplateColumns: '92px minmax(0, 1fr)', gap: 8, alignItems: 'baseline', minWidth: 0 }}><div style={{ fontSize: 9.2, letterSpacing: '.035em', textTransform: 'uppercase', color: 'var(--muted,#64748b)', fontWeight: 800, whiteSpace: 'nowrap' }}>{rowLabel}</div><div style={{ fontSize: 10.8, color: 'var(--fg,#0f172a)', fontWeight: 100, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rowValue || '—'}</div></div>;
 }
 
 export default function CostOrderPrint() {
@@ -156,49 +141,23 @@ export default function CostOrderPrint() {
                   </div>
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 10.5, fontWeight: 900, color: 'var(--brand,#0891b2)', letterSpacing: '.14em' }}>{data.order.copyLabel}</div>
-                <div style={{ marginTop: 3, fontSize: 26, fontWeight: 950, letterSpacing: '-.04em' }}>OC #{data.order.id}</div>
-                <div style={{ marginTop: 5, fontSize: 12.5, color: 'var(--muted,#64748b)' }}>{formatDate(data.order.fecha)}</div>
-              </div>
+              <div style={{ textAlign: 'right' }}><div style={{ fontSize: 32, fontWeight: 950 }}>#{data.order.id}</div></div>
             </div>
 
-            <div style={section} className="cost-order-print-section cost-order-print-keep">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }} className="cost-order-print-grid">
-                <div><div style={label}>Estado</div><div style={value}>{data.order.estado || 'Sin estado'}</div></div>
-                <div><div style={label}>Tipo</div><div style={value}>{data.order.tipo || 'Sin tipo'}</div></div>
-                <div><div style={label}>Campaña</div><div style={value}>{data.campaign || 'No registrada'}</div></div>
-                <div><div style={label}>Servicio</div><div style={value}>{data.service || 'No registrado'}</div></div>
-              </div>
-              <div style={{ marginTop: 14 }}><div style={label}>Producto / Rubro</div><div style={value}>{data.product || 'No registrado'}</div></div>
-            </div>
-
-            <div style={{ ...section, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }} className="cost-order-print-section cost-order-print-grid cost-order-print-keep">
-              <InfoBlock title="Cliente" party={data.client} />
-              <InfoBlock title="Proveedor" party={data.provider} />
-            </div>
-
-            {data.budgets.length > 0 && (
-              <div style={section} className="cost-order-print-section cost-order-print-keep">
-                <div style={label}>Presupuestos asociados</div>
-                <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {data.budgets.map((budget) => <span key={`${budget.tipo}-${budget.ppto}`} style={{ padding: '5px 9px', borderRadius: 999, background: 'rgba(8,145,178,.10)', color: 'var(--brand,#0891b2)', fontSize: 12, fontWeight: 800 }}>Tipo {budget.tipo || '-'} · #{budget.ppto}</span>)}
-                </div>
-              </div>
-            )}
+            <div style={{ ...section, paddingTop: 13, paddingBottom: 13 }} className="cost-order-print-section cost-order-print-keep"><div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(0, 1fr)', columnGap: 26, rowGap: 6 }} className="cost-order-print-grid"><CompactRow label="Tipo" value={data.order.tipo || 'Orden de costo'} /><CompactRow label="Estado" value={data.order.estado} /><CompactRow label="Cliente" value={data.client.name} /><CompactRow label="NIT cliente" value={data.client.nit} /><CompactRow label="Proveedor" value={data.provider.name} /><CompactRow label="NIT proveedor" value={data.provider.nit} /><CompactRow label="Campaña" value={data.campaign} /><CompactRow label="Copia" value={data.order.copyLabel} /><CompactRow label="Servicio" value={data.service} /><CompactRow label="Fecha" value={formatDate(data.order.fecha)} /><CompactRow label="Producto" value={data.product} /><CompactRow label="N° orden" value={data.order.id} /></div></div>
 
             <div style={section} className="cost-order-print-section">
-              <div style={{ ...label, marginBottom: 10 }}>Detalle</div>
+              <div style={{ ...label, marginBottom: 10, textAlign: 'center' }}>Detalle</div>
               <div style={{ overflowX: 'auto' }}>
-                <table className="cost-order-print-details" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead><tr><th style={th}>Descripción</th><th style={{ ...th, textAlign: 'right' }}>Cantidad</th><th style={{ ...th, textAlign: 'right' }}>Valor unitario</th><th style={{ ...th, textAlign: 'right' }}>Total</th></tr></thead>
+                <table className="cost-order-print-details" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                  <thead><tr><th style={{ ...th, width: '52%' }}>Descripción</th><th style={{ ...th, width: '12%', textAlign: 'right' }}>Cantidad</th><th style={{ ...th, width: '18%', textAlign: 'right' }}>Valor unitario</th><th style={{ ...th, width: '18%', textAlign: 'right' }}>Total</th></tr></thead>
                   <tbody>
                     {data.details.map((detail) => (
                       <tr key={detail.idDetalle}>
-                        <td style={{ ...td, width: '55%' }}>{detail.detalle}</td>
-                        <td style={{ ...td, textAlign: 'right' }}>{detail.cantidad.toLocaleString('es-CO')}</td>
-                        <td style={{ ...td, textAlign: 'right' }}>{fmtMoneyFull(detail.valor)}</td>
-                        <td style={{ ...td, textAlign: 'right', fontWeight: 800, color: 'var(--fg,#0f172a)' }}>{fmtMoneyFull(detail.total)}</td>
+                        <td style={{ ...td, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{detail.detalle}</td>
+                        <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>{detail.cantidad.toLocaleString('es-CO')}</td>
+                        <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtMoneyFull(detail.valor)}</td>
+                        <td style={{ ...td, textAlign: 'right', fontWeight: 800, color: 'var(--fg,#0f172a)', whiteSpace: 'nowrap' }}>{fmtMoneyFull(detail.total)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -206,33 +165,33 @@ export default function CostOrderPrint() {
               </div>
             </div>
 
-            <div style={{ ...section, display: 'grid', gridTemplateColumns: '1.2fr .8fr', gap: 18 }} className="cost-order-print-section cost-order-print-grid cost-order-print-keep">
+            <div style={{ ...section, display: 'grid', gridTemplateColumns: '1.25fr .75fr', gap: 14, paddingTop: 14, paddingBottom: 14 }} className="cost-order-print-section cost-order-print-grid cost-order-print-keep">
               <div>
                 <div style={label}>Observación</div>
-                <div style={{ marginTop: 8, minHeight: 70, padding: 12, border: '1px solid var(--border,#e5e8ec)', borderRadius: 12, fontSize: 12.5, color: 'var(--fg-2,#334155)', whiteSpace: 'pre-wrap' }}>{data.order.observacion || 'Sin observaciones'}</div>
+                <div style={{ marginTop: 6, minHeight: 38, padding: 10, border: '1px solid var(--border,#e5e8ec)', borderRadius: 10, fontSize: 11.5, color: 'var(--fg-2,#334155)', whiteSpace: 'pre-wrap' }}>{data.order.observacion || 'Sin observaciones'}</div>
               </div>
-              <div style={{ border: '1px solid var(--border,#e5e8ec)', borderRadius: 14, padding: 14 }}>
+              <div style={{ border: '1px solid var(--border,#e5e8ec)', borderRadius: 12, padding: 11 }}>
                 {[
                   ['Valor bruto', data.totals.valor],
                   [`Descuento (${data.totals.porcDescuento}%)`, -data.totals.descuento],
                   ['Subtotal', data.totals.subtotal],
                   [`IVA (${data.totals.porcIva}%)`, data.totals.iva],
                 ].map(([name, amount]) => (
-                  <div key={String(name)} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '6px 0', fontSize: 12.5, color: 'var(--fg-2,#334155)' }}><span>{name}</span><b>{fmtMoneyFull(Number(amount))}</b></div>
+                  <div key={String(name)} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '3px 0', fontSize: 11.5, color: 'var(--fg-2,#334155)' }}><span>{name}</span><b>{fmtMoneyFull(Number(amount))}</b></div>
                 ))}
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 8, paddingTop: 12, borderTop: '1px solid var(--border,#e5e8ec)', fontSize: 17, fontWeight: 950 }}><span>Total</span><span>{fmtMoneyFull(data.totals.total)}</span></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 6, paddingTop: 8, borderTop: '1px solid var(--border,#e5e8ec)', fontSize: 14, fontWeight: 900 }}><span>Total</span><span>{fmtMoneyFull(data.totals.total)}</span></div>
               </div>
             </div>
 
-            <div style={{ ...section, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }} className="cost-order-print-section cost-order-print-grid cost-order-print-keep">
+            <div style={{ ...section, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, paddingTop: 12, paddingBottom: 10 }} className="cost-order-print-section cost-order-print-grid cost-order-print-keep">
               <div>
                 <div style={label}>Elaboró</div>
-                <div style={{ marginTop: 36, borderTop: '1px solid var(--fg,#0f172a)', paddingTop: 8, fontSize: 13, fontWeight: 800 }}>{data.creator.name || 'Sin registro'}</div>
+                <div style={{ marginTop: 24, borderTop: '1px solid var(--fg,#0f172a)', paddingTop: 6, fontSize: 11.5, fontWeight: 800 }}>{data.creator.name || 'Sin registro'}</div>
                 {data.creator.email && <div style={{ marginTop: 3, fontSize: 12, color: 'var(--muted,#64748b)' }}>{data.creator.email}</div>}
               </div>
               <div>
                 <div style={label}>Recibido / Aprobado</div>
-                <div style={{ marginTop: 36, borderTop: '1px solid var(--fg,#0f172a)', paddingTop: 8, fontSize: 13, fontWeight: 800 }}>Firma y sello</div>
+                <div style={{ marginTop: 24, borderTop: '1px solid var(--fg,#0f172a)', paddingTop: 6, fontSize: 11.5, fontWeight: 800 }}>Firma y sello</div>
               </div>
             </div>
           </>

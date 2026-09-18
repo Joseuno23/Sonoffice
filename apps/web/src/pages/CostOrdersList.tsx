@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import ConfirmDialog from '../components/ConfirmDialog';
 import PageHeader from '../components/PageHeader';
 import { TableSkeleton } from '../components/Skeletons';
+import ToastMessage from '../components/ToastMessage';
 import { Icon } from '../lib/icons';
 import { fmtMoneyFull } from '../lib/format';
 import { api } from '../services/api';
@@ -106,6 +107,7 @@ export default function CostOrdersList() {
   const [finalObsSaving, setFinalObsSaving] = useState(false);
   const [finalObsError, setFinalObsError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const finalObsRequestId = useRef(0);
 
   // Debounce del buscador para no golpear el backend en cada tecla.
@@ -258,7 +260,9 @@ export default function CostOrdersList() {
     api.anuleCostOrder(orderId)
       .then((res) => {
         if (res?.success) {
-          setSuccess(res.message || 'Orden anulada correctamente.');
+          const text = res.message || 'Orden anulada correctamente.';
+          setSuccess(text);
+          setToast({ type: 'success', text });
           reload();
         } else {
           setError(res?.message || 'No se pudo anular la orden.');
@@ -431,16 +435,11 @@ export default function CostOrdersList() {
                 </thead>
                 <tbody>
                   {items.map((order) => {
-                    const canEdit = order.permittedActions.includes('edit');
                     const visibleActions = order.permittedActions.filter((action) => ACTION_CATALOG.some((catalogAction) => catalogAction.code === action));
                     return (
                     <tr key={order.id} style={{ borderBottom: '1px solid var(--border,#e5e8ec)' }}>
                       <td style={{ padding: '13px 16px', fontFamily: 'JetBrains Mono,monospace', fontWeight: 700 }}>
-                        {canEdit ? (
-                          <button onClick={() => navigate(`/medios/ordenes-costo/${order.id}/editar`)} style={{ padding: 0, border: 'none', background: 'transparent', color: 'var(--brand,#0891b2)', fontFamily: 'inherit', fontWeight: 800, fontSize: 13, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>#{order.id}</button>
-                        ) : (
-                          <span style={{ color: 'var(--brand,#0891b2)', fontWeight: 800 }}>#{order.id}</span>
-                        )}
+                        <button onClick={() => navigate(`/medios/ordenes-costo/${order.id}/editar`)} style={{ padding: 0, border: 'none', background: 'transparent', color: 'var(--brand,#0891b2)', fontFamily: 'inherit', fontWeight: 800, fontSize: 13, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>#{order.id}</button>
                         <div style={{ color: 'var(--muted,#64748b)', fontFamily: 'inherit', fontSize: 11, marginTop: 3 }}>{formatDate(order.fecha)}</div>
                       </td>
                       <td style={{ padding: '13px 16px', fontSize: 13, color: 'var(--fg-2,#334155)', maxWidth: 220 }}>{order.cliente || '—'}</td>
@@ -632,6 +631,8 @@ export default function CostOrdersList() {
           onCancel={() => setConfirmAction(null)}
         />
       )}
+
+      <ToastMessage type={toast?.type} message={toast?.text} onDismiss={() => setToast(null)} />
     </>
   );
 }

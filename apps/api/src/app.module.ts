@@ -14,14 +14,16 @@ import { ReportsModule } from './reports/reports.module';
 import { HealthController } from './health.controller';
 import databaseConfig from './config/database.config';
 import emailConfig from './config/email.config';
+import externalProductionBudgetConfig from './config/external-production-budget.config';
 import { DbModule } from './db/db.module';
+import { ExternalProductionBudgetsModule } from './budgets/external-production/external-production-budgets.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env', '../../.env'],
-      load: [databaseConfig, emailConfig],
+      load: [databaseConfig, emailConfig, externalProductionBudgetConfig],
     }),
     DbModule,
     OrdersModule,
@@ -35,6 +37,7 @@ import { DbModule } from './db/db.module';
     CostOrdersModule,
     PermissionsModule,
     ReportsModule,
+    ExternalProductionBudgetsModule,
   ],
   controllers: [HealthController],
 })

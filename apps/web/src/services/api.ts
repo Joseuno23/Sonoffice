@@ -167,6 +167,49 @@ export const api = {
     return req('/cost-orders/budget-lines' + (qs ? '?' + qs : ''));
   },
   attachCostOrderBudgetLine: (id, payload) => req('/cost-orders/' + encodeURIComponent(id) + '/budget-lines', { method: 'POST', body: JSON.stringify(payload) }),
+  getExternalProductionBudgets: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '') as [string, string][],
+    ).toString();
+    return req('/budgets/external-production' + (qs ? '?' + qs : ''));
+  },
+  getExternalProductionBudgetStatuses: () => req('/budgets/external-production/statuses'),
+  getExternalProductionBudget: (id) => req('/budgets/external-production/' + encodeURIComponent(id)),
+  getExternalProductionBudgetPrintData: (id) => req('/budgets/external-production/' + encodeURIComponent(id) + '/print-data'),
+  createExternalProductionBudget: (payload) => req('/budgets/external-production', { method: 'POST', body: JSON.stringify(payload) }),
+  updateExternalProductionBudget: (id, payload) => req('/budgets/external-production/' + encodeURIComponent(id), { method: 'PUT', body: JSON.stringify(payload) }),
+  addExternalProductionBudgetDetail: (id, payload) => req('/budgets/external-production/' + encodeURIComponent(id) + '/details', { method: 'POST', body: JSON.stringify(payload) }),
+  updateExternalProductionBudgetDetail: (id, detailId, payload) => req('/budgets/external-production/' + encodeURIComponent(id) + '/details/' + encodeURIComponent(detailId), { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteExternalProductionBudgetDetail: (id, detailId) => req('/budgets/external-production/' + encodeURIComponent(id) + '/details/' + encodeURIComponent(detailId), { method: 'DELETE' }),
+  getExternalProductionBudgetCostOrderDetails: (id, orderId) => req('/budgets/external-production/' + encodeURIComponent(id) + '/cost-order-details?orderId=' + encodeURIComponent(orderId || '')),
+  addExternalProductionBudgetCostOrderDetail: (id, payload) => req('/budgets/external-production/' + encodeURIComponent(id) + '/cost-order-details', { method: 'POST', body: JSON.stringify(payload) }),
+  printExternalProductionBudget: (id) => req('/budgets/external-production/' + encodeURIComponent(id) + '/print', { method: 'POST' }),
+  anuleExternalProductionBudget: (id, observacion) => req('/budgets/external-production/' + encodeURIComponent(id) + '/anule', { method: 'POST', body: JSON.stringify({ observacion }) }),
+  duplicateExternalProductionBudget: (id) => req('/budgets/external-production/' + encodeURIComponent(id) + '/duplicate', { method: 'POST' }),
+  replaceExternalProductionBudget: (id) => req('/budgets/external-production/' + encodeURIComponent(id) + '/replace', { method: 'POST' }),
+  addExternalProductionBudgetOrder: (id, order) => req('/budgets/external-production/' + encodeURIComponent(id) + '/order', { method: 'POST', body: JSON.stringify({ order }) }),
+  getExternalProductionBudgetSupport: (id) => req('/budgets/external-production/' + encodeURIComponent(id) + '/support'),
+  uploadExternalProductionBudgetSupport: (id, file) => {
+    const formData = new FormData();
+    formData.append('files', file);
+    return reqForm('/budgets/external-production/' + encodeURIComponent(id) + '/support', formData);
+  },
+  deleteExternalProductionBudgetSupport: (id, filename) => req('/budgets/external-production/' + encodeURIComponent(id) + '/support/' + encodeURIComponent(filename), { method: 'DELETE' }),
+  downloadExternalProductionBudgetSupport: (id, filename) => reqBlob('/budgets/external-production/' + encodeURIComponent(id) + '/support/' + encodeURIComponent(filename)),
+  getExternalProductionBudgetDefaults: (idCliente, idServicio) => req('/budgets/external-production/defaults?idCliente=' + encodeURIComponent(idCliente || '') + '&idServicio=' + encodeURIComponent(idServicio || '')),
+  getExternalProductionBudgetOptions: (type, params = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '') as [string, string][],
+    ).toString();
+    return req('/budgets/external-production/options/' + encodeURIComponent(type) + (qs ? '?' + qs : ''));
+  },
+  getExternalProductionBudgetIncentives: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '') as [string, string][],
+    ).toString();
+    return req('/budgets/external-production/incentives' + (qs ? '?' + qs : ''));
+  },
+  getExternalProductionBudgetOrders: () => req('/budgets/external-production/orders'),
   getCostOrdersReportOptions: () => req('/reports/cost-orders/options'),
   downloadCostOrdersReport: (params = {}) => {
     const qs = new URLSearchParams(

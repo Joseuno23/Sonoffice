@@ -191,6 +191,8 @@ export interface CostOrderDetailRow extends RowDataPacket {
   cantidad: number;
   valor: number;
   total: number;
+  totalCobrado: number | null;
+  faltante: number | null;
   hasBudget: number; // 1 si tiene sys_oc_ppto, 0 si no
   budgetTipo: number | null;
   budgetPpto: number | null;
@@ -406,6 +408,8 @@ export interface CostOrderDetailItem {
   cantidad: number;
   valor: number;
   total: number;
+  totalCobrado: number;
+  faltante: number;
   hasBudget: boolean;
   budgetTipo: number | null;
   budgetPpto: number | null;
@@ -434,6 +438,8 @@ export interface CostOrderDetailData {
   porcDescuento: number;
   valor: number;
   total: number;
+  cobrado: number;
+  faltante: number;
   detalles: CostOrderDetailItem[];
   permittedActions: string[];
 }

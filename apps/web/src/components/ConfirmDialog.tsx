@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { Icon } from '../lib/icons';
 
 type ConfirmTone = 'default' | 'danger' | 'warning';
@@ -6,7 +6,7 @@ type ConfirmTone = 'default' | 'danger' | 'warning';
 interface ConfirmDialogProps {
   open: boolean;
   title: string;
-  description: string;
+  description: ReactNode;
   confirmLabel: string;
   cancelLabel?: string;
   tone?: ConfirmTone;
@@ -40,14 +40,21 @@ const buttonBase: CSSProperties = { height: 40, padding: '0 16px', borderRadius:
 
 export default function ConfirmDialog({ open, title, description, confirmLabel, cancelLabel = 'Cancelar', tone = 'default', loading = false, onConfirm, onCancel }: ConfirmDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const loadingRef = useRef(loading);
+  const onCancelRef = useRef(onCancel);
   const toneStyle = toneStyles[tone];
+
+  useEffect(() => {
+    loadingRef.current = loading;
+    onCancelRef.current = onCancel;
+  }, [loading, onCancel]);
 
   useEffect(() => {
     if (!open) return undefined;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const timer = window.setTimeout(() => cancelRef.current?.focus(), 0);
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !loading) onCancel();
+      if (event.key === 'Escape' && !loadingRef.current) onCancelRef.current();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => {
@@ -55,7 +62,7 @@ export default function ConfirmDialog({ open, title, description, confirmLabel, 
       document.removeEventListener('keydown', onKeyDown);
       previousFocus?.focus();
     };
-  }, [open, loading, onCancel]);
+  }, [open]);
 
   if (!open) return null;
 
