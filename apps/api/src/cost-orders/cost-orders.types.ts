@@ -134,6 +134,7 @@ export interface CostOrderHeaderRow extends RowDataPacket {
   servicio: string | null;
   tipo: string | null;
   observacion: string | null;
+  finalObservation: string | null;
   porcIva: number | null;
   porcDescuento: number | null;
   valor: number | null;
@@ -224,6 +225,7 @@ export interface CostOrderPrintHeaderRow extends RowDataPacket {
   estado: string | null;
   tipo: string | null;
   observacion: string | null;
+  finalObservation: string | null;
   porcIva: number | null;
   porcDescuento: number | null;
   valor: number | null;
@@ -463,6 +465,7 @@ export interface CostOrderPrintData {
     copyLabel: 'ORIGINAL' | 'DUPLICADO';
     numImpresiones: number;
     observacion: string | null;
+    finalObservation: string | null;
   };
   client: { name: string | null; nit: string | null; address: string | null; phone: string | null; city: string | null };
   provider: { name: string | null; nit: string | null; address: string | null; phone: string | null; city: string | null };

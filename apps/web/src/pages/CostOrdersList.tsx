@@ -11,6 +11,7 @@ import { api } from '../services/api';
 const card: CSSProperties = { background: 'var(--surface,#fff)', border: '1px solid var(--border,#e5e8ec)', borderRadius: 16, boxShadow: 'var(--shadow)', overflow: 'hidden' };
 const th: CSSProperties = { textAlign: 'left', padding: '11px 16px', fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted,#64748b)', borderBottom: '1px solid var(--border,#e5e8ec)' };
 const input: CSSProperties = { width: '100%', minHeight: 38, padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border,#e5e8ec)', background: 'var(--surface-2,#f7f8fa)', color: 'var(--fg,#0f172a)', fontSize: 13, outline: 'none', boxSizing: 'border-box' };
+const moneyText: CSSProperties = { fontFamily: 'Inter, system-ui, sans-serif', fontVariantNumeric: 'tabular-nums' };
 const PER = 10;
 const FINAL_OBSERVATION_MAX_LENGTH = 3000;
 
@@ -406,7 +407,7 @@ export default function CostOrdersList() {
           <input
             value={q}
             onChange={(event) => setQ(event.target.value)}
-            placeholder="Buscar por orden, proveedor, cliente, campaña o valor…"
+            placeholder="Buscar por orden, proveedor, cliente, campaña, usuario o valor…"
             style={{ ...input, flex: 1, minWidth: 240, height: 38 }}
           />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -447,7 +448,7 @@ export default function CostOrdersList() {
                       <td style={{ padding: '13px 16px', fontSize: 13, color: 'var(--fg-2,#334155)', maxWidth: 200 }}>{order.campana || '—'}</td>
                       <td style={{ padding: '13px 16px', fontSize: 13, color: 'var(--fg-2,#334155)' }}>{order.usuario || '—'}</td>
                       <td style={{ padding: '13px 16px' }}><StatusBadge estado={order.estado} color={order.estadoColor} /></td>
-                      <td style={{ padding: '13px 16px', textAlign: 'right', fontFamily: 'JetBrains Mono,monospace', fontSize: 13, fontWeight: 600, color: 'var(--fg,#0f172a)', whiteSpace: 'nowrap' }}>{fmtMoneyFull(order.total)}</td>
+                      <td style={{ ...moneyText, padding: '13px 16px', textAlign: 'right', fontSize: 13, fontWeight: 600, color: 'var(--fg,#0f172a)', whiteSpace: 'nowrap' }}>{fmtMoneyFull(order.total)}</td>
                       <td style={{ padding: '13px 16px', textAlign: 'right' }}>
                         {visibleActions.length > 0 ? (
                           <button
@@ -601,7 +602,7 @@ export default function CostOrdersList() {
                         <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--fg-2,#334155)' }}>{order.cliente || '—'}</td>
                         <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--fg-2,#334155)' }}>{order.proveedor || '—'}</td>
                         <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--fg-2,#334155)' }}>{order.campana || '—'}</td>
-                        <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'JetBrains Mono,monospace', fontSize: 13, fontWeight: 600 }}>{fmtMoneyFull(order.total)}</td>
+                        <td style={{ ...moneyText, padding: '12px 16px', textAlign: 'right', fontSize: 13, fontWeight: 600 }}>{fmtMoneyFull(order.total)}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -80,6 +80,82 @@ de producción externa y ajustes alrededor de órdenes de costo.
   - `docs/manual-administracion-vm.md`
   - `docs/manual-administracion-vm.pdf`
 
+## Ajustes posteriores al handoff
+
+- 2026-09-18: Usuarios del módulo de OC pidieron mejorar la captura de
+  descripciones largas. Se cambió solo el campo `detalle` de líneas de órdenes
+  de costo y de presupuestos de producción externa de `input` a `textarea`,
+  conservando los iconos y tooltips existentes. El `textarea` debe iniciar con
+  apariencia de input normal (`rows=1`) y permitir agrandarlo manualmente con el
+  mouse si el usuario necesita más espacio.
+  - `apps/web/src/pages/CostOrderForm.tsx`
+  - `apps/web/src/pages/ExternalProductionBudgetForm.tsx`
+- 2026-09-18: Mejora UX solicitada para selects con buscador: al escribir en el
+  buscador, el usuario puede navegar resultados con flecha abajo/arriba,
+  seleccionar con Enter y cerrar con Escape. El resultado resaltado hace scroll
+  dentro de la lista. Aplica a los `SearchSelect` de OC y presupuestos externos.
+  - `apps/web/src/pages/CostOrderForm.tsx`
+  - `apps/web/src/pages/ExternalProductionBudgetForm.tsx`
+- 2026-09-18: Ajuste de legibilidad en valores monetarios: se reemplazó la
+  tipografía mono en valores por Inter/system con `font-variant-numeric:
+  tabular-nums` para evitar que el `0` parezca `8`, conservando alineación de
+  cifras. No aplica a IDs/códigos, solo valores visibles.
+  - `apps/web/src/pages/CostOrderForm.tsx`
+  - `apps/web/src/pages/ExternalProductionBudgetForm.tsx`
+- 2026-09-18: Ajuste de cabecera en imprimible de OC: se retiraron `Tipo`,
+  `Servicio`, `Producto`, `Copia`, `Estado` y `N° orden` de la cabecera compacta.
+  El número de orden ya se muestra en el encabezado superior.
+  - `apps/web/src/pages/CostOrderPrint.tsx`
+- 2026-09-18: Ajuste de búsqueda en listados: el buscador de órdenes de costo
+  ahora incluye el usuario creador (`sys_users.name`) y el buscador de
+  presupuestos de producción externa incluye el usuario creador legacy
+  (`usuarios.usr_nombre` + `usr_apellido`). También se actualizaron los
+  placeholders para indicar búsqueda por usuario.
+  - `apps/api/src/cost-orders/cost-orders.repository.ts`
+  - `apps/api/src/budgets/external-production/external-production-budgets.repository.ts`
+  - `apps/web/src/pages/CostOrdersList.tsx`
+  - `apps/web/src/pages/ExternalProductionBudgets.tsx`
+- 2026-09-18: Ajuste de creación solo cabecera: las órdenes de costo pueden
+  crearse sin líneas de detalle ni detalle de presupuesto, siempre que la
+  cabecera obligatoria esté completa. Presupuesto de producción externa ya
+  guardaba cabecera por separado; se verificó que no exige detalles para crear.
+  - `apps/api/src/cost-orders/cost-orders.service.ts`
+  - `apps/web/src/pages/CostOrderForm.tsx`
+- 2026-09-18: Corrección de edición de OC con borrados locales + agregado desde
+  presupuesto: al asociar un detalle de presupuesto ya no se refresca toda la OC
+  desde backend, porque eso revivía líneas manuales borradas en pantalla pero aún
+  no guardadas. El backend devuelve el `idDetalle` creado y el frontend inserta
+  esa línea en el estado local actual para preservar la transacción de edición.
+  - `apps/api/src/cost-orders/cost-orders.repository.ts`
+  - `apps/api/src/cost-orders/cost-orders.service.ts`
+  - `apps/web/src/pages/CostOrderForm.tsx`
+- 2026-09-18: Se revisó el flujo equivalente en presupuesto de producción
+  externa. Borrar detalles ahí persiste inmediatamente, pero al agregar detalle
+  desde OC se eliminó el `loadBudget(id)` para no pisar estado local de cabecera
+  o detalles; el backend devuelve el detalle creado y el frontend lo agrega al
+  estado actual. También se aplicó la fuente legible de valores (`Inter` +
+  `tabular-nums`) a los valores monetarios de listados de OC y presupuestos.
+  - `apps/api/src/budgets/external-production/external-production-budgets.repository.ts`
+  - `apps/api/src/budgets/external-production/external-production-budgets.service.ts`
+  - `apps/web/src/pages/ExternalProductionBudgetForm.tsx`
+  - `apps/web/src/pages/CostOrdersList.tsx`
+  - `apps/web/src/pages/ExternalProductionBudgets.tsx`
+- 2026-09-18: Nombres sugeridos para guardar PDF desde imprimibles: el título del
+  documento se ajusta antes de imprimir para que el navegador sugiera nombres de
+  archivo legibles. OC usa `OC_<numero>_<proveedor>`; presupuesto externo usa
+  `Produccion-Externa_<numero>_<cliente>`. Los nombres se sanitizan para quitar
+  acentos y caracteres no seguros.
+  - `apps/web/src/pages/CostOrderPrint.tsx`
+  - `apps/web/src/pages/ExternalProductionBudgetPrint.tsx`
+- 2026-09-19: El imprimible de OC muestra ambas observaciones en la sección
+  Observación sin subtítulos internos: la observación de cabecera
+  (`sys_orden_costos.observacion`) y la observación agregada desde el listado
+  (`sys_orden_costos.obs_final`), una debajo de la otra cuando ambas existen.
+  - `apps/api/src/cost-orders/cost-orders.repository.ts`
+  - `apps/api/src/cost-orders/cost-orders.service.ts`
+  - `apps/api/src/cost-orders/cost-orders.types.ts`
+  - `apps/web/src/pages/CostOrderPrint.tsx`
+
 ## Auditoría previa al commit
 
 Se hizo una revisión fresca antes del commit inicial de handoff.

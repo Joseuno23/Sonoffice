@@ -61,8 +61,8 @@ export class ExternalProductionBudgetsRepository {
     const params: (string | number)[] = [];
     if (filters.search) {
       const like = `%${filters.search}%`;
-      where.push('(p.psex_id LIKE ? OR c.nombre LIKE ? OR pr.nombre LIKE ? OR ca.camp_nombre LIKE ? OR s.nombre LIKE ? OR p.psex_numorden LIKE ?)');
-      params.push(like, like, like, like, like, like);
+      where.push('(p.psex_id LIKE ? OR c.nombre LIKE ? OR pr.nombre LIKE ? OR ca.camp_nombre LIKE ? OR s.nombre LIKE ? OR p.psex_numorden LIKE ? OR CONCAT(COALESCE(u.usr_nombre, \'\'), \' \', COALESCE(u.usr_apellido, \'\')) LIKE ?)');
+      params.push(like, like, like, like, like, like, like);
     }
     if (filters.estado) { where.push('p.psex_estado = ?'); params.push(filters.estado); }
     const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
@@ -72,8 +72,9 @@ export class ExternalProductionBudgetsRepository {
       LEFT JOIN sys_clients pr ON p.pvcl_id_prov = pr.id_client
       LEFT JOIN cat_campanas ca ON p.camp_id = ca.camp_id
       LEFT JOIN cat_prodsclies pd ON p.pdcl_id = pd.pdcl_id
-      LEFT JOIN sys_tipo_servicio s ON p.tpsv_id = s.id_tipo_servicio`;
-    const rows = await this.db.execute<BudgetRow[]>(`SELECT p.psex_id AS id, p.psex_fecha AS fecha, p.psex_estado AS idEstado, e.est_nombre AS estado, e.est_color AS estadoColor, c.nombre AS cliente, pr.nombre AS proveedor, ca.camp_nombre AS campana, pd.pdcl_nombre AS producto, s.nombre AS servicio, p.psex_numorden AS ordenCliente, p.psex_numorden AS orderNumber, p.psex_numcotizacion AS cotizacion, p.psex_valor AS valor, p.psex_total AS total, p.incentivo_x_servicio AS incentivoXServicio, p.num_impresiones AS numImpresiones ${from} ${clause} ORDER BY p.psex_id DESC LIMIT ${limit} OFFSET ${offset}`, params);
+      LEFT JOIN sys_tipo_servicio s ON p.tpsv_id = s.id_tipo_servicio
+      LEFT JOIN usuarios u ON p.usr_id_crea = u.usr_id`;
+    const rows = await this.db.execute<BudgetRow[]>(`SELECT p.psex_id AS id, p.psex_fecha AS fecha, p.psex_estado AS idEstado, e.est_nombre AS estado, e.est_color AS estadoColor, c.nombre AS cliente, pr.nombre AS proveedor, ca.camp_nombre AS campana, pd.pdcl_nombre AS producto, s.nombre AS servicio, p.psex_numorden AS ordenCliente, p.psex_numorden AS orderNumber, p.psex_numcotizacion AS cotizacion, p.psex_valor AS valor, p.psex_total AS total, p.incentivo_x_servicio AS incentivoXServicio, p.num_impresiones AS numImpresiones, CONCAT(u.usr_nombre, ' ', u.usr_apellido) AS usuario ${from} ${clause} ORDER BY p.psex_id DESC LIMIT ${limit} OFFSET ${offset}`, params);
     const count = await this.db.execute<CountRow[]>(`SELECT COUNT(*) AS total ${from} ${clause}`, params);
     return { rows, total: Number(count[0]?.total ?? 0) };
   }
@@ -265,7 +266,7 @@ export class ExternalProductionBudgetsRepository {
     });
   }
 
-  async addCostOrderDetail(budgetId: number, orderId: number, orderDetailId: number, assigned: number, userId: number, defaultIva: number, incentivePayload: { incentivo: number; costoIncentivo?: number }): Promise<'ok' | 'not-found' | 'not-active' | 'order-unavailable' | 'detail-unavailable' | 'incentive-not-found' | 'type-mismatch' | 'iva-mismatch' | 'unavailable'> {
+  async addCostOrderDetail(budgetId: number, orderId: number, orderDetailId: number, assigned: number, userId: number, defaultIva: number, incentivePayload: { incentivo: number; costoIncentivo?: number }): Promise<number | 'not-found' | 'not-active' | 'order-unavailable' | 'detail-unavailable' | 'incentive-not-found' | 'type-mismatch' | 'iva-mismatch' | 'unavailable'> {
     return this.db.transaction(async (connection) => {
       const [budgets] = await connection.execute<(RowDataPacket & { id: number; state: number; fecha: Date | string; idCliente: number; idProveedor: number; idServicio: number | null; iva: number | null })[]>(`SELECT psex_id AS id, psex_estado AS state, psex_fecha AS fecha, pvcl_id_clie AS idCliente, pvcl_id_prov AS idProveedor, tpsv_id AS idServicio, psex_iva AS iva FROM presup_prode WHERE psex_id = ? FOR UPDATE`, [budgetId]);
       const budget = budgets[0];
@@ -295,7 +296,7 @@ export class ExternalProductionBudgetsRepository {
       await connection.execute<ResultSetHeader>(`UPDATE sys_orden_costos SET tipo_ppto = CASE WHEN tipo_ppto IS NULL THEN ? ELSE tipo_ppto END WHERE id_orden = ?`, [this.type, orderId]);
       await this.recalc(connection, budgetId);
       await this.recalcCostOrder(connection, orderId, userId);
-      return 'ok';
+      return insert.insertId;
     });
   }
 

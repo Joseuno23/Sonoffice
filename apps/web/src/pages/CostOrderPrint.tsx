@@ -5,7 +5,7 @@ import { api } from '../services/api';
 
 interface PrintData {
   company: { name: string; commercialName: string | null; nit: string | null; address: string | null; city: string | null; department: string | null; country: string | null; phone: string | null };
-  order: { id: number; fecha: string | null; estado: string | null; tipo: string | null; copyLabel: string; observacion: string | null };
+  order: { id: number; fecha: string | null; estado: string | null; tipo: string | null; copyLabel: string; observacion: string | null; finalObservation: string | null };
   client: Party;
   provider: Party;
   campaign: string | null;
@@ -29,6 +29,14 @@ const td: CSSProperties = { padding: '11px 12px', fontSize: 12.5, color: 'var(--
 
 function formatDate(value: string | null) {
   return value ? new Date(value + 'T00:00:00').toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: '2-digit' }) : 'Sin fecha';
+}
+
+function fileSafe(value: string | number | null | undefined) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'sin-nombre';
 }
 
 function CompactRow({ label: rowLabel, value: rowValue }: { label: string; value: string | number | null | undefined }) {
@@ -83,6 +91,13 @@ export default function CostOrderPrint() {
     window.setTimeout(() => { void runPrint(); }, 150);
   }, [data, params]);
 
+  useEffect(() => {
+    if (!data) return;
+    const previousTitle = document.title;
+    document.title = `OC_${fileSafe(data.order.id)}_${fileSafe(data.provider.name)}`;
+    return () => { document.title = previousTitle; };
+  }, [data]);
+
   return (
     <div style={page} className="cost-order-print-page">
       <style>{`
@@ -130,6 +145,11 @@ export default function CostOrderPrint() {
         ) : error ? (
           <div style={{ padding: 42, textAlign: 'center', color: '#b91c1c', fontWeight: 700 }}>{error}</div>
         ) : data ? (
+          (() => {
+            const headerObservation = data.order.observacion?.trim();
+            const finalObservation = data.order.finalObservation?.trim();
+            const observations = [headerObservation, finalObservation].filter(Boolean) as string[];
+            return (
           <>
             <div className="cost-order-print-header cost-order-print-keep" style={{ padding: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, background: 'linear-gradient(135deg, rgba(8,145,178,.10), rgba(15,23,42,.02))' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -144,7 +164,7 @@ export default function CostOrderPrint() {
               <div style={{ textAlign: 'right' }}><div style={{ fontSize: 32, fontWeight: 950 }}>#{data.order.id}</div></div>
             </div>
 
-            <div style={{ ...section, paddingTop: 13, paddingBottom: 13 }} className="cost-order-print-section cost-order-print-keep"><div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(0, 1fr)', columnGap: 26, rowGap: 6 }} className="cost-order-print-grid"><CompactRow label="Tipo" value={data.order.tipo || 'Orden de costo'} /><CompactRow label="Estado" value={data.order.estado} /><CompactRow label="Cliente" value={data.client.name} /><CompactRow label="NIT cliente" value={data.client.nit} /><CompactRow label="Proveedor" value={data.provider.name} /><CompactRow label="NIT proveedor" value={data.provider.nit} /><CompactRow label="Campaña" value={data.campaign} /><CompactRow label="Copia" value={data.order.copyLabel} /><CompactRow label="Servicio" value={data.service} /><CompactRow label="Fecha" value={formatDate(data.order.fecha)} /><CompactRow label="Producto" value={data.product} /><CompactRow label="N° orden" value={data.order.id} /></div></div>
+            <div style={{ ...section, paddingTop: 13, paddingBottom: 13 }} className="cost-order-print-section cost-order-print-keep"><div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(0, 1fr)', columnGap: 26, rowGap: 6 }} className="cost-order-print-grid"><CompactRow label="Cliente" value={data.client.name} /><CompactRow label="NIT cliente" value={data.client.nit} /><CompactRow label="Proveedor" value={data.provider.name} /><CompactRow label="NIT proveedor" value={data.provider.nit} /><CompactRow label="Campaña" value={data.campaign} /><CompactRow label="Fecha" value={formatDate(data.order.fecha)} /></div></div>
 
             <div style={section} className="cost-order-print-section">
               <div style={{ ...label, marginBottom: 10, textAlign: 'center' }}>Detalle</div>
@@ -168,7 +188,7 @@ export default function CostOrderPrint() {
             <div style={{ ...section, display: 'grid', gridTemplateColumns: '1.25fr .75fr', gap: 14, paddingTop: 14, paddingBottom: 14 }} className="cost-order-print-section cost-order-print-grid cost-order-print-keep">
               <div>
                 <div style={label}>Observación</div>
-                <div style={{ marginTop: 6, minHeight: 38, padding: 10, border: '1px solid var(--border,#e5e8ec)', borderRadius: 10, fontSize: 11.5, color: 'var(--fg-2,#334155)', whiteSpace: 'pre-wrap' }}>{data.order.observacion || 'Sin observaciones'}</div>
+                <div style={{ marginTop: 6, minHeight: 38, padding: 10, border: '1px solid var(--border,#e5e8ec)', borderRadius: 10, fontSize: 11.5, color: 'var(--fg-2,#334155)', whiteSpace: 'pre-wrap', display: 'flex', flexDirection: 'column', gap: 8 }}>{observations.length ? observations.map((item, index) => <div key={`${index}-${item}`}>{item}</div>) : 'Sin observaciones'}</div>
               </div>
               <div style={{ border: '1px solid var(--border,#e5e8ec)', borderRadius: 12, padding: 11 }}>
                 {[
@@ -195,6 +215,8 @@ export default function CostOrderPrint() {
               </div>
             </div>
           </>
+            );
+          })()
         ) : null}
       </div>
     </div>

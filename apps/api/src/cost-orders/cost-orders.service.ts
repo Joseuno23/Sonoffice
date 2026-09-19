@@ -561,7 +561,7 @@ export class CostOrdersService {
     }
   }
 
-  async attachBudgetLine(userId: number, roleId: number, rawOrderId: unknown, payload: CostOrderBudgetAttachPayload): Promise<CostOrderResponse<{ id: number }>> {
+  async attachBudgetLine(userId: number, roleId: number, rawOrderId: unknown, payload: CostOrderBudgetAttachPayload): Promise<CostOrderResponse<{ id: number; detail: { idDetalle: number; detalle: string; cantidad: number; valor: number; totalCobrado: number; faltante: number; hasBudget: boolean; budgetTipo: number; budgetPpto: number; budgetIdDetallePpto: number; budgetValorAsignado: number } }>> {
     const orderId = this.toPositiveInteger(rawOrderId);
     const tipo = this.toPositiveInteger(payload.tipo);
     const ppto = this.toPositiveInteger(payload.ppto);
@@ -631,7 +631,26 @@ export class CostOrdersService {
       if (attachResult === 'unavailable') {
         return { success: false, data: null, message: 'El valor asignado supera el saldo disponible del presupuesto', errorCode: 'COST_ORDERS_VALIDATION' };
       }
-      return { success: true, data: { id: orderId }, message: 'Detalle de presupuesto agregado correctamente' };
+      return {
+        success: true,
+        data: {
+          id: orderId,
+          detail: {
+            idDetalle: attachResult,
+            detalle: budgetLine.detalle,
+            cantidad,
+            valor: this.round2(valorAsignado / cantidad),
+            totalCobrado: this.round2(valorAsignado),
+            faltante: 0,
+            hasBudget: true,
+            budgetTipo: tipo,
+            budgetPpto: ppto,
+            budgetIdDetallePpto: idDetallePpto,
+            budgetValorAsignado: this.round2(valorAsignado),
+          },
+        },
+        message: 'Detalle de presupuesto agregado correctamente',
+      };
     } catch (error) {
       return this.handleError(error);
     }
@@ -709,10 +728,6 @@ export class CostOrdersService {
     if (budgetDetails.some((item) => item.tipo !== budgetDetails[0]?.tipo)) {
       return { success: false, data: null, message: 'Esta orden fue creada para presupuestos de otro tipo', errorCode: 'COST_ORDERS_VALIDATION' };
     }
-    if (!details.length && !budgetDetails.length) {
-      return { success: false, data: null, message: 'Agrega al menos un detalle a la orden', errorCode: 'COST_ORDERS_VALIDATION' };
-    }
-
     try {
       // Validar existencia de cliente/proveedor (evita FKs basura).
       const [clientOk, providerOk] = await Promise.all([
@@ -842,6 +857,7 @@ export class CostOrdersService {
             copyLabel: numImpresiones < 0 ? 'ORIGINAL' : 'DUPLICADO',
             numImpresiones,
             observacion: header.observacion ?? null,
+            finalObservation: header.finalObservation ?? null,
           },
           client: {
             name: header.cliente ?? null,

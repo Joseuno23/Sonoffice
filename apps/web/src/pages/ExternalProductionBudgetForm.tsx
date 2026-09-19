@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent,
 } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import AlertMessage from "../components/AlertMessage";
@@ -63,12 +64,16 @@ const readonlyInput: CSSProperties = {
   background: "var(--surface-2,#f7f8fa)",
   color: "var(--fg-2,#334155)",
 };
+const moneyText: CSSProperties = {
+  fontFamily: "Inter, system-ui, sans-serif",
+  fontVariantNumeric: "tabular-nums",
+};
 const monoTotal: CSSProperties = {
+  ...moneyText,
   fontSize: 13,
   fontWeight: 700,
   color: "var(--fg-2,#334155)",
   textAlign: "right",
-  fontFamily: "JetBrains Mono,monospace",
   whiteSpace: "nowrap",
 };
 const detailTooltipBox: CSSProperties = {
@@ -143,7 +148,9 @@ function SearchSelect({
   const [q, setQ] = useState("");
   const [options, setOptions] = useState<Option[]>([]);
   const [loading, setLoading] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const boxRef = useRef<HTMLDivElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   useEffect(() => {
     if (!open || disabled) return;
@@ -165,6 +172,43 @@ function SearchSelect({
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
+
+  useEffect(() => {
+    setHighlightedIndex(options.length ? 0 : -1);
+    optionRefs.current = [];
+  }, [options]);
+
+  useEffect(() => {
+    if (highlightedIndex < 0) return;
+    optionRefs.current[highlightedIndex]?.scrollIntoView({ block: "nearest" });
+  }, [highlightedIndex]);
+
+  const selectOption = (opt: Option) => {
+    onSelect(opt);
+    setOpen(false);
+    setQ("");
+  };
+
+  const onSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setHighlightedIndex((current) =>
+        options.length ? Math.min(current + 1, options.length - 1) : -1,
+      );
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlightedIndex((current) =>
+        options.length ? Math.max(current - 1, 0) : -1,
+      );
+    } else if (event.key === "Enter") {
+      if (highlightedIndex >= 0 && options[highlightedIndex]) {
+        event.preventDefault();
+        selectOption(options[highlightedIndex]);
+      }
+    } else if (event.key === "Escape") {
+      setOpen(false);
+    }
+  };
 
   return (
     <div ref={boxRef} style={{ position: "relative" }}>
@@ -221,6 +265,7 @@ function SearchSelect({
               autoFocus
               value={q}
               onChange={(e) => setQ(e.target.value)}
+              onKeyDown={onSearchKeyDown}
               placeholder="Buscar…"
               style={{ ...input, height: 38 }}
             />
@@ -237,34 +282,30 @@ function SearchSelect({
                 Buscando…
               </div>
             ) : options.length ? (
-              options.map((opt) => (
+              options.map((opt, index) => (
                 <button
                   key={opt.id}
-                  type="button"
-                  onClick={() => {
-                    onSelect(opt);
-                    setOpen(false);
-                    setQ("");
+                  ref={(element) => {
+                    optionRefs.current[index] = element;
                   }}
+                  type="button"
+                  onClick={() => selectOption(opt)}
                   style={{
                     display: "block",
                     width: "100%",
                     textAlign: "left",
                     padding: "8px 10px",
                     border: "none",
-                    background: "transparent",
+                    background:
+                      highlightedIndex === index
+                        ? "var(--surface-2,#f7f8fa)"
+                        : "transparent",
                     borderRadius: 7,
                     fontSize: 13,
                     color: "var(--fg-2,#334155)",
                     cursor: "pointer",
                   }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background =
-                      "var(--surface-2,#f7f8fa)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "transparent")
-                  }
+                  onMouseEnter={() => setHighlightedIndex(index)}
                 >
                   {opt.label}
                 </button>
@@ -656,7 +697,27 @@ export default function ExternalProductionBudgetForm() {
       .then((res) => {
         if (res?.success) {
           setMessage({ type: "success", text: res.message });
-          loadBudget(id);
+          const created = res.data?.detail;
+          setDetails((list) => [
+            ...list,
+            created
+              ? { ...created, detalle: created.detalle ?? row.detalle, idServicio: created.idServicio ?? header.idServicio, iva: created.iva ?? header.iva }
+              : {
+                  id: `oc-${ocId}-${row.idDetalle}`,
+                  unidad: "1",
+                  idServicio: header.idServicio,
+                  servicio: null,
+                  detalle: row.detalle || "Sin detalle",
+                  valor: assigned,
+                  iva: header.iva,
+                  incentivo: Number(ocIncentive || 0),
+                  incentivoArea: null,
+                  incentivoMedio: null,
+                  valorAsignadoOc: assigned,
+                  ordenCosto: Number(ocId),
+                  editableCost: false,
+                },
+          ]);
           searchCostOrderDetails();
         } else
           setMessage({
@@ -1288,11 +1349,12 @@ export default function ExternalProductionBudgetForm() {
                           zIndex: detailTooltip?.key === "new-detail" ? 20 : 1,
                         }}
                       >
-                    <input
+                    <textarea
                       value={detail.detalle}
                       onChange={(e) => setD("detalle", e.target.value)}
                       placeholder="Detalle"
-                      style={{ ...input, paddingRight: 42 }}
+                      rows={1}
+                      style={{ ...input, minHeight: 44, padding: "11px 42px 10px 13px", resize: "vertical", lineHeight: 1.35, fontFamily: "inherit" }}
                     />
                     {detailTooltip?.key === "new-detail" && (
                       <div style={detailTooltipBox}>
@@ -1611,7 +1673,7 @@ export default function ExternalProductionBudgetForm() {
                             fontSize: 12.5,
                             fontWeight: 800,
                             color: "var(--fg,#0f172a)",
-                            fontFamily: "JetBrains Mono,monospace",
+                            ...moneyText,
                             whiteSpace: "nowrap",
                             boxSizing: "border-box",
                           }}
@@ -1767,7 +1829,7 @@ export default function ExternalProductionBudgetForm() {
                   <span>{k}</span>
                   <span
                     style={{
-                      fontFamily: "JetBrains Mono,monospace",
+                      ...moneyText,
                       fontWeight: 600,
                     }}
                   >
@@ -1787,7 +1849,7 @@ export default function ExternalProductionBudgetForm() {
                 }}
               >
                 <span>Total</span>
-                <span style={{ fontFamily: "JetBrains Mono,monospace" }}>
+                <span style={moneyText}>
                   {fmtMoneyFull(total)}
                 </span>
               </div>

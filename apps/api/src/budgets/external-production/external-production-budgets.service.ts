@@ -251,7 +251,28 @@ export class ExternalProductionBudgetsService {
       if (result === 'type-mismatch') return this.fail('La orden de costo debe ser externa y compatible con Producción Externa');
       if (result === 'iva-mismatch') return this.fail('La orden de costo no tiene IVA compatible con el presupuesto');
       if (result === 'unavailable') return this.fail('El valor asignado debe ser mayor a cero y no superar el disponible');
-      return { success: true, data: { id: budgetId }, message: 'Detalle de orden de costo agregado correctamente' };
+      return {
+        success: true,
+        data: {
+          id: budgetId,
+          detail: {
+            id: result,
+            unidad: '1',
+            idServicio: null,
+            servicio: null,
+            detalle: null,
+            valor: this.round2(assigned),
+            iva: null,
+            incentivo,
+            incentivoArea: null,
+            incentivoMedio: null,
+            valorAsignadoOc: this.round2(assigned),
+            ordenCosto: orderId,
+            editableCost: false,
+          },
+        },
+        message: 'Detalle de orden de costo agregado correctamente',
+      };
     } catch (error) { return this.error(error); }
   }
 

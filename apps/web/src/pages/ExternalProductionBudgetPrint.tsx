@@ -30,6 +30,14 @@ function formatDate(value: string | null) {
   return value ? new Date(value + 'T00:00:00').toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: '2-digit' }) : 'Sin fecha';
 }
 
+function fileSafe(value: string | number | null | undefined) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'sin-nombre';
+}
+
 function CompactRow({ label: rowLabel, value: rowValue }: { label: string; value: string | number | null | undefined }) {
   return <div style={{ display: 'grid', gridTemplateColumns: '92px minmax(0, 1fr)', gap: 8, alignItems: 'baseline', minWidth: 0 }}><div style={{ fontSize: 9.2, letterSpacing: '.035em', textTransform: 'uppercase', color: 'var(--muted,#64748b)', fontWeight: 800, whiteSpace: 'nowrap' }}>{rowLabel}</div><div style={{ fontSize: 10.8, color: 'var(--fg,#0f172a)', fontWeight: 100, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rowValue || '—'}</div></div>;
 }
@@ -69,6 +77,13 @@ export default function ExternalProductionBudgetPrint() {
     autoPrintStarted.current = true;
     window.setTimeout(() => { void runPrint(); }, 150);
   }, [data, params]);
+
+  useEffect(() => {
+    if (!data) return;
+    const previousTitle = document.title;
+    document.title = `Produccion-Externa_${fileSafe(data.budget.id)}_${fileSafe(data.client.name)}`;
+    return () => { document.title = previousTitle; };
+  }, [data]);
 
   return <div style={page} className="external-budget-print-page">
     <style>{`

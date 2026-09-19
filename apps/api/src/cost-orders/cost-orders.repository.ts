@@ -204,9 +204,9 @@ export class CostOrdersRepository {
       const like = `%${filters.search}%`;
       conditions.push(`(
         o.id_orden LIKE ? OR e.description LIKE ? OR p.nombre LIKE ?
-        OR c.nombre LIKE ? OR ca.camp_nombre LIKE ? OR o.valor LIKE ?
+        OR c.nombre LIKE ? OR ca.camp_nombre LIKE ? OR u.name LIKE ? OR o.valor LIKE ?
       )`);
-      params.push(like, like, like, like, like, like);
+      params.push(like, like, like, like, like, like, like);
     }
 
     if (filters.estado !== null) {
@@ -447,6 +447,7 @@ export class CostOrdersRepository {
         s.nombre AS servicio,
         o.tipo AS tipo,
         o.observacion AS observacion,
+        o.obs_final AS finalObservation,
         o.porc_iva AS porcIva,
         o.porc_descuento AS porcDescuento,
         o.valor AS valor,
@@ -503,6 +504,7 @@ export class CostOrdersRepository {
         e.description AS estado,
         o.tipo AS tipo,
         o.observacion AS observacion,
+        o.obs_final AS finalObservation,
         o.porc_iva AS porcIva,
         o.porc_descuento AS porcDescuento,
         o.valor AS valor,
@@ -982,7 +984,7 @@ export class CostOrdersRepository {
     asignado: number,
     expectedClientId: number,
     expectedProviderId: number,
-  ): Promise<'ok' | 'duplicate' | 'unavailable' | 'order-unavailable' | 'budget-unavailable'> {
+  ): Promise<number | 'duplicate' | 'unavailable' | 'order-unavailable' | 'budget-unavailable'> {
     const s = BUDGET_STRUCTURES[tipo];
     const availableExpr = tipo === 7
       ? `(${s.totalExpr} / ((COALESCE((SELECT porcentaje_interna FROM sys_data_billing LIMIT 1), 0) / 100) + 1)) - COALESCE(d.valor_asignado_oc, 0)`
@@ -1074,7 +1076,7 @@ export class CostOrdersRepository {
          WHERE id_orden = ?`,
         [orderId, orderId, orderId],
       );
-      return 'ok';
+      return detailResult.insertId;
     });
   }
 

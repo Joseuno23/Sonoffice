@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import AlertMessage from '../components/AlertMessage';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -10,6 +10,7 @@ const card: CSSProperties = { background: 'var(--surface,#fff)', border: '1px so
 const lbl: CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--fg-2,#334155)', marginBottom: 8 };
 const inBase: CSSProperties = { width: '100%', height: 44, padding: '0 13px', borderRadius: 10, border: '1px solid var(--border-strong,#d5d9e0)', background: 'var(--surface,#fff)', color: 'var(--fg,#0f172a)', fontSize: 14, outline: 'none', boxSizing: 'border-box' };
 const btnGhost: CSSProperties = { height: 40, padding: '0 15px', border: '1px solid var(--border-strong,#d5d9e0)', background: 'var(--surface,#fff)', color: 'var(--fg-2,#334155)', borderRadius: 10, fontWeight: 600, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 };
+const moneyText: CSSProperties = { fontFamily: 'Inter, system-ui, sans-serif', fontVariantNumeric: 'tabular-nums' };
 const detailTooltipBox: CSSProperties = { position: 'absolute', left: 0, right: 0, bottom: 'calc(100% + 8px)', zIndex: 100, padding: '10px 12px', borderRadius: 10, background: 'var(--fg,#0f172a)', color: 'var(--surface,#fff)', boxShadow: 'var(--shadow-lg)', fontSize: 12.5, lineHeight: 1.45, whiteSpace: 'pre-wrap', overflowWrap: 'break-word', pointerEvents: 'none' };
 const detailIconButton: CSSProperties = { position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: 22, height: 22, borderRadius: 999, border: '1px solid var(--border-strong,#d5d9e0)', background: 'var(--surface,#fff)', display: 'grid', placeItems: 'center', cursor: 'help', padding: 0 };
 const infoIconPath = 'M12 16v-4M12 8h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z';
@@ -49,7 +50,9 @@ function SearchSelect({ value, label, placeholder, disabled = false, fetcher, on
   const [q, setQ] = useState('');
   const [options, setOptions] = useState<Option[]>([]);
   const [loading, setLoading] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const boxRef = useRef<HTMLDivElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -69,6 +72,39 @@ function SearchSelect({ value, label, placeholder, disabled = false, fetcher, on
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
 
+  useEffect(() => {
+    setHighlightedIndex(options.length ? 0 : -1);
+    optionRefs.current = [];
+  }, [options]);
+
+  useEffect(() => {
+    if (highlightedIndex < 0) return;
+    optionRefs.current[highlightedIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [highlightedIndex]);
+
+  const selectOption = (opt: Option) => {
+    onSelect(opt);
+    setOpen(false);
+    setQ('');
+  };
+
+  const onSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setHighlightedIndex((current) => options.length ? Math.min(current + 1, options.length - 1) : -1);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setHighlightedIndex((current) => options.length ? Math.max(current - 1, 0) : -1);
+    } else if (event.key === 'Enter') {
+      if (highlightedIndex >= 0 && options[highlightedIndex]) {
+        event.preventDefault();
+        selectOption(options[highlightedIndex]);
+      }
+    } else if (event.key === 'Escape') {
+      setOpen(false);
+    }
+  };
+
   return (
     <div ref={boxRef} style={{ position: 'relative' }}>
       <label style={lbl}>{label} <span style={{ color: '#ef4444' }}>*</span></label>
@@ -79,12 +115,12 @@ function SearchSelect({ value, label, placeholder, disabled = false, fetcher, on
       {open && (
         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 30, marginTop: 4, background: 'var(--surface,#fff)', border: '1px solid var(--border,#e5e8ec)', borderRadius: 10, boxShadow: 'var(--shadow-lg)', overflow: 'hidden' }}>
           <div style={{ padding: 8, borderBottom: '1px solid var(--border,#e5e8ec)' }}>
-            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" disabled={disabled} style={{ ...inBase, height: 38 }} />
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onSearchKeyDown} placeholder="Buscar…" disabled={disabled} style={{ ...inBase, height: 38 }} />
           </div>
           <div style={{ maxHeight: 240, overflowY: 'auto', padding: 6 }}>
             {loading ? <div style={{ padding: 12, fontSize: 13, color: 'var(--muted,#64748b)' }}>Buscando…</div>
-              : options.length ? options.map((opt) => (
-                <button key={opt.id} type="button" onClick={() => { onSelect(opt); setOpen(false); setQ(''); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', background: 'transparent', borderRadius: 7, fontSize: 13, color: 'var(--fg-2,#334155)', cursor: 'pointer' }} onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2,#f7f8fa)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>{opt.label}</button>
+              : options.length ? options.map((opt, index) => (
+                <button key={opt.id} ref={(el) => { optionRefs.current[index] = el; }} type="button" onClick={() => selectOption(opt)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', background: highlightedIndex === index ? 'var(--surface-2,#f7f8fa)' : 'transparent', borderRadius: 7, fontSize: 13, color: 'var(--fg-2,#334155)', cursor: 'pointer' }} onMouseEnter={() => setHighlightedIndex(index)}>{opt.label}</button>
               )) : <div style={{ padding: 12, fontSize: 13, color: 'var(--muted,#64748b)' }}>Escribe para buscar.</div>}
           </div>
         </div>
@@ -256,7 +292,7 @@ export default function CostOrderForm() {
   const budgetDetails = detalles.filter((l) => l.hasBudget && l.budgetTipo && l.budgetPpto && l.budgetIdDetallePpto && Number(l.cantidad) > 0 && Number(l.budgetValorAsignado) > 0);
   const currentBudgetTipo = !isEdit ? budgetDetails[0]?.budgetTipo ?? null : null;
   const hasBudgetDetails = budgetDetails.length > 0;
-  const canSubmit = editable && !!cliente && !!proveedor && !!idServicio && !!idCampana && !!idProducto && (validDetails.length > 0 || hasBudgetDetails);
+  const canSubmit = editable && !!cliente && !!proveedor && !!idServicio && !!idCampana && !!idProducto;
 
   const searchBudget = () => {
     if (!editable) return;
@@ -349,7 +385,34 @@ export default function CostOrderForm() {
         if (res?.success) {
           setMessage({ type: 'success', text: res.message || 'Detalle de presupuesto agregado.' });
           setBudgetLines([]);
-          refreshDetails();
+          const attached = res.data?.detail;
+          setDetalles((list) => {
+            const next = list.filter((detail) => detail.hasBudget || detail.detalle.trim() || Number(detail.valor) > 0);
+            return [...next, attached ? {
+              idDetalle: attached.idDetalle,
+              detalle: attached.detalle,
+              cantidad: String(attached.cantidad),
+              valor: String(attached.valor),
+              totalCobrado: attached.totalCobrado ?? valorAsignado,
+              faltante: attached.faltante ?? 0,
+              hasBudget: true,
+              budgetTipo: attached.budgetTipo ?? Number(budgetTipo),
+              budgetPpto: attached.budgetPpto ?? Number(budgetPpto),
+              budgetIdDetallePpto: attached.budgetIdDetallePpto ?? line.idDetallePpto,
+              budgetValorAsignado: attached.budgetValorAsignado ?? valorAsignado,
+            } : {
+              detalle: line.detalle,
+              cantidad: String(cantidad),
+              valor: String(valorAsignado / cantidad),
+              totalCobrado: valorAsignado,
+              faltante: 0,
+              hasBudget: true,
+              budgetTipo: Number(budgetTipo),
+              budgetPpto: Number(budgetPpto),
+              budgetIdDetallePpto: line.idDetallePpto,
+              budgetValorAsignado: valorAsignado,
+            }];
+          });
         } else {
           setMessage({ type: 'error', text: res?.message || 'No se pudo agregar el presupuesto.' });
         }
@@ -501,17 +564,19 @@ export default function CostOrderForm() {
               {detalles.map((row, i) => {
                 const detailKey = `detail-${i}`;
                 const budgetKey = `budget-${i}`;
+                const detailPaddingRight = row.detalle.trim() ? (row.hasBudget ? 72 : 42) : (row.hasBudget ? 42 : 13);
                 return (
                 <div key={i} style={{ display: 'grid', gridTemplateColumns: editable ? 'minmax(220px, 1fr) 68px 120px 150px 44px' : 'minmax(220px, 1fr) 68px 120px 150px', gap: 10, alignItems: 'center' }}>
                   <div
                     style={{ position: 'relative', minWidth: 0, zIndex: detailTooltip?.key === detailKey || detailTooltip?.key === budgetKey ? 20 : 1 }}
                   >
-                    <input
+                    <textarea
                       value={row.detalle}
                       onChange={(e) => setLine(i, 'detalle', e.target.value)}
                       disabled={!editable || row.hasBudget}
                       placeholder={'Detalle ' + (i + 1)}
-                      style={{ ...inBase, paddingRight: row.detalle.trim() ? row.hasBudget ? 72 : 42 : row.hasBudget ? 42 : inBase.padding, background: !editable || row.hasBudget ? 'var(--surface-2,#f7f8fa)' : inBase.background }}
+                      rows={1}
+                      style={{ ...inBase, minHeight: 44, padding: `11px ${detailPaddingRight}px 10px 13px`, resize: 'vertical', lineHeight: 1.35, fontFamily: 'inherit', background: !editable || row.hasBudget ? 'var(--surface-2,#f7f8fa)' : inBase.background }}
                     />
                     {detailTooltip?.key === detailKey || detailTooltip?.key === budgetKey ? (
                       <div style={detailTooltipBox}>
@@ -541,7 +606,7 @@ export default function CostOrderForm() {
                   <input value={row.valor} onChange={(e) => setLine(i, 'valor', e.target.value.replace(/[^0-9.]/g, ''))} disabled={!editable || row.hasBudget} placeholder="Valor" style={{ ...inBase, width: '100%', background: !editable || row.hasBudget ? 'var(--surface-2,#f7f8fa)' : inBase.background }} />
                   <div style={{ minWidth: 0, textAlign: 'right' }}>
                     <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--muted,#64748b)', textTransform: 'uppercase', letterSpacing: '.03em' }}>Total</div>
-                    <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--fg-2,#334155)', fontFamily: 'JetBrains Mono,monospace', whiteSpace: 'nowrap' }}>{fmtMoneyFull(lineTotal(row))}</div>
+                    <div style={{ ...moneyText, fontSize: 12.5, fontWeight: 700, color: 'var(--fg-2,#334155)', whiteSpace: 'nowrap' }}>{fmtMoneyFull(lineTotal(row))}</div>
                   </div>
                   {editable && <button onClick={() => removeLine(i)} disabled={!!row.idDetalle && deletingDetail === row.idDetalle} style={{ width: 44, height: 44, flex: 'none', border: '1px solid var(--border-strong,#d5d9e0)', background: 'var(--surface,#fff)', borderRadius: 10, color: row.hasBudget ? '#2563eb' : '#ef4444', cursor: deletingDetail ? 'default' : 'pointer', display: 'grid', placeItems: 'center', opacity: !!row.idDetalle && deletingDetail === row.idDetalle ? .55 : 1 }} title={row.hasBudget ? 'Eliminar y liberar presupuesto' : 'Eliminar línea'}>
                       <Icon d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" size={16} sw={1.9} />
@@ -576,7 +641,7 @@ export default function CostOrderForm() {
                       <div style={{ display: 'grid', gridTemplateColumns: '140px 110px minmax(150px,1fr) 96px', gap: 10, alignItems: 'end' }}>
                         <div>
                           <label style={lbl}>Total</label>
-                          <div style={{ height: 38, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 11px', borderRadius: 10, border: '1px solid var(--border,#e5e8ec)', background: 'rgba(15,23,42,.05)', fontSize: 12.5, fontWeight: 800, color: 'var(--fg,#0f172a)', fontFamily: 'JetBrains Mono,monospace', whiteSpace: 'nowrap', boxSizing: 'border-box' }}>{fmtMoneyFull(line.total)}</div>
+                          <div style={{ ...moneyText, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 11px', borderRadius: 10, border: '1px solid var(--border,#e5e8ec)', background: 'rgba(15,23,42,.05)', fontSize: 12.5, fontWeight: 800, color: 'var(--fg,#0f172a)', whiteSpace: 'nowrap', boxSizing: 'border-box' }}>{fmtMoneyFull(line.total)}</div>
                         </div>
                         <div><label style={lbl}>Cantidad OC</label><input value={line.cantidad || ''} onChange={(e) => setBudgetLine(i, 'cantidad', e.target.value.replace(/[^0-9]/g, ''))} style={{ ...inBase, height: 38, textAlign: 'center' }} /></div>
                         <div><label style={lbl}>Valor a asignar</label><input value={line.asignado || ''} onChange={(e) => setBudgetLine(i, 'asignado', e.target.value.replace(/[^0-9.]/g, ''))} style={{ ...inBase, height: 38 }} /></div>
@@ -608,20 +673,20 @@ export default function CostOrderForm() {
               {[['Valor', valor], ['Descuento', -descuento], ['IVA', iva]].map(([k, v]) => (
                 <div key={k as string} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--fg-2,#334155)' }}>
                   <span>{k}</span>
-                  <span style={{ fontFamily: 'JetBrains Mono,monospace', fontWeight: 600 }}>{fmtMoneyFull(v as number)}</span>
+                  <span style={{ ...moneyText, fontWeight: 600 }}>{fmtMoneyFull(v as number)}</span>
                 </div>
               ))}
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10, borderTop: '1px solid var(--border,#e5e8ec)', fontSize: 15, fontWeight: 800, color: 'var(--fg,#0f172a)' }}>
                 <span>Total</span>
-                <span style={{ fontFamily: 'JetBrains Mono,monospace' }}>{fmtMoneyFull(total)}</span>
+                <span style={moneyText}>{fmtMoneyFull(total)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--fg-2,#334155)' }}>
                 <span>Cobrado</span>
-                <span style={{ fontFamily: 'JetBrains Mono,monospace', fontWeight: 600 }}>{fmtMoneyFull(visibleCobrado)}</span>
+                <span style={{ ...moneyText, fontWeight: 600 }}>{fmtMoneyFull(visibleCobrado)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--fg-2,#334155)' }}>
                 <span>Faltante</span>
-                <span style={{ fontFamily: 'JetBrains Mono,monospace', fontWeight: 600 }}>{fmtMoneyFull(visibleFaltante)}</span>
+                <span style={{ ...moneyText, fontWeight: 600 }}>{fmtMoneyFull(visibleFaltante)}</span>
               </div>
             </div>
           </div>

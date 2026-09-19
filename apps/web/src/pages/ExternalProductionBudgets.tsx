@@ -12,6 +12,7 @@ import { api } from '../services/api';
 const card: CSSProperties = { background: 'var(--surface,#fff)', border: '1px solid var(--border,#e5e8ec)', borderRadius: 16, boxShadow: 'var(--shadow)', overflow: 'hidden' };
 const th: CSSProperties = { textAlign: 'left', padding: '11px 16px', fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted,#64748b)', borderBottom: '1px solid var(--border,#e5e8ec)' };
 const input: CSSProperties = { width: '100%', minHeight: 38, padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border,#e5e8ec)', background: 'var(--surface-2,#f7f8fa)', color: 'var(--fg,#0f172a)', fontSize: 13, outline: 'none', boxSizing: 'border-box' };
+const moneyText: CSSProperties = { fontFamily: 'Inter, system-ui, sans-serif', fontVariantNumeric: 'tabular-nums' };
 const label: CSSProperties = { display: 'block', fontSize: 12.5, fontWeight: 700, color: 'var(--fg-2,#334155)', marginBottom: 6 };
 const PER = 10;
 
@@ -215,7 +216,7 @@ export default function ExternalProductionBudgets() {
           <input
             value={q}
             onChange={(event) => setQ(event.target.value)}
-            placeholder="Buscar por presupuesto, cliente, proveedor o campaña…"
+            placeholder="Buscar por presupuesto, cliente, proveedor, campaña o usuario…"
             style={{ ...input, flex: 1, minWidth: 240, height: 38 }}
           />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -254,7 +255,7 @@ export default function ExternalProductionBudgets() {
                       <td style={{ padding: '13px 16px', fontSize: 13, color: 'var(--fg-2,#334155)', maxWidth: 200 }}>{row.campana || '—'}</td>
                       <td style={{ padding: '13px 16px', fontSize: 13, color: 'var(--fg-2,#334155)' }}>{row.usuario || '—'}</td>
                       <td style={{ padding: '13px 16px' }}><StatusBadge estado={row.estado} /></td>
-                      <td style={{ padding: '13px 16px', textAlign: 'right', fontFamily: 'JetBrains Mono,monospace', fontSize: 13, fontWeight: 600, color: 'var(--fg,#0f172a)', whiteSpace: 'nowrap' }}>{fmtMoneyFull(Number(row.total || 0))}</td>
+                      <td style={{ ...moneyText, padding: '13px 16px', textAlign: 'right', fontSize: 13, fontWeight: 600, color: 'var(--fg,#0f172a)', whiteSpace: 'nowrap' }}>{fmtMoneyFull(Number(row.total || 0))}</td>
                       <td style={{ padding: '13px 16px', textAlign: 'right' }}>
                         <button
                           title="Acciones"
