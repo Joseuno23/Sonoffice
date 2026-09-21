@@ -54,9 +54,12 @@ npm ci
 echo "==> Compilando API y frontend"
 npm run build
 
+echo "==> Validando sudo en VM"
+sudo -v < /dev/tty
+
 echo "==> Publicando frontend en Nginx"
-sudo rsync -a --delete apps/web/dist/ "$VM_WEB_DIR/"
-sudo chown -R www-data:www-data "$VM_WEB_DIR"
+sudo -n rsync -a --delete apps/web/dist/ "$VM_WEB_DIR/"
+sudo -n chown -R www-data:www-data "$VM_WEB_DIR"
 
 echo "==> Reiniciando API con PM2"
 pm2 restart "$PM2_PROCESS"
