@@ -11,7 +11,8 @@
     "dev:web": "npm run dev -w @sonoffice/web",
     "dev:api": "npm run dev -w @sonoffice/api",
     "build": "npm run build -w @sonoffice/api && npm run build -w @sonoffice/web",
-    "typecheck": "npm run typecheck -w @sonoffice/api && npm run typecheck -w @sonoffice/web"
+    "typecheck": "npm run typecheck -w @sonoffice/api && npm run typecheck -w @sonoffice/web",
+    "deploy:vm": "bash scripts/deploy-vm.sh"
   },
   "devDependencies": {
     "concurrently": "^9.0.1"
