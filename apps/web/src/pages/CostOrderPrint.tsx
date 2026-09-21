@@ -39,6 +39,13 @@ function fileSafe(value: string | number | null | undefined) {
     .replace(/^-+|-+$/g, '') || 'sin-nombre';
 }
 
+function orderTypePrefix(tipo: string | null | undefined) {
+  const normalized = tipo?.trim().toUpperCase();
+  if (normalized === 'E' || normalized === 'EXTERNA') return 'Ext';
+  if (normalized === 'I' || normalized === 'INTERNA') return 'Int';
+  return null;
+}
+
 function CompactRow({ label: rowLabel, value: rowValue }: { label: string; value: string | number | null | undefined }) {
   return <div style={{ display: 'grid', gridTemplateColumns: '92px minmax(0, 1fr)', gap: 8, alignItems: 'baseline', minWidth: 0 }}><div style={{ fontSize: 9.2, letterSpacing: '.035em', textTransform: 'uppercase', color: 'var(--muted,#64748b)', fontWeight: 800, whiteSpace: 'nowrap' }}>{rowLabel}</div><div style={{ fontSize: 10.8, color: 'var(--fg,#0f172a)', fontWeight: 100, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rowValue || '—'}</div></div>;
 }
@@ -149,6 +156,7 @@ export default function CostOrderPrint() {
             const headerObservation = data.order.observacion?.trim();
             const finalObservation = data.order.finalObservation?.trim();
             const observations = [headerObservation, finalObservation].filter(Boolean) as string[];
+            const orderPrefix = orderTypePrefix(data.order.tipo);
             return (
           <>
             <div className="cost-order-print-header cost-order-print-keep" style={{ padding: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, background: 'linear-gradient(135deg, rgba(8,145,178,.10), rgba(15,23,42,.02))' }}>
@@ -161,7 +169,7 @@ export default function CostOrderPrint() {
                   </div>
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}><div style={{ fontSize: 32, fontWeight: 950 }}>#{data.order.id}</div></div>
+              <div style={{ textAlign: 'right' }}><div style={{ fontSize: 32, fontWeight: 950 }}>#{orderPrefix ? `${orderPrefix}-` : ''}{data.order.id}</div></div>
             </div>
 
             <div style={{ ...section, paddingTop: 13, paddingBottom: 13 }} className="cost-order-print-section cost-order-print-keep"><div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(0, 1fr)', columnGap: 26, rowGap: 6 }} className="cost-order-print-grid"><CompactRow label="Cliente" value={data.client.name} /><CompactRow label="NIT cliente" value={data.client.nit} /><CompactRow label="Proveedor" value={data.provider.name} /><CompactRow label="NIT proveedor" value={data.provider.nit} /><CompactRow label="Campaña" value={data.campaign} /><CompactRow label="Fecha" value={formatDate(data.order.fecha)} /></div></div>
