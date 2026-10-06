@@ -308,6 +308,20 @@ de producción externa y ajustes alrededor de órdenes de costo.
   - `apps/web/src/pages/ExternalProductionBudgetForm.tsx`
   - `apps/api/src/budgets/internal-production/internal-production-budgets.service.ts`
   - `apps/api/src/budgets/internal-production/internal-production-budgets.repository.ts`
+- 2026-10-06: Se agregó el comando de proyecto `.opencode/commands/new-module.md`
+  para guiar migraciones de nuevos módulos legacy. El comando obliga a leer
+  `AGENTS.md` y este contexto, auditar legacy antes de implementar, identificar
+  controlador/modelos/vistas/tablas/validaciones/permisos, planear backend,
+  frontend, seeds y verificaciones, y documentar/memorizar el handoff.
+  - `.opencode/commands/new-module.md`
+- 2026-10-06: Se agregó el skill de proyecto `sonoffice-legacy-migration` para
+  concentrar reglas reutilizables de migración: no inventar comportamiento,
+  auditar legacy primero, no hardcodear valores de negocio, exigir permisos y
+  seeds para menús/botones/acciones, validar permisos en backend, mantener diseño
+  consistente y usar español neutro. `AGENTS.md` lo registra como obligatorio para
+  migraciones o cambios funcionales de módulos.
+  - `.opencode/skills/sonoffice-legacy-migration/SKILL.md`
+  - `AGENTS.md`
 
 ## Auditoría previa al commit
 

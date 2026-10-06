@@ -17,10 +17,10 @@ This file is the portable, versioned Engram context for the `sonoffice` project.
 | Source database | `~/.engram/engram.db` |
 | Query filter | `project = 'sonoffice' AND deleted_at IS NULL` |
 | Sort order | `created_at ASC, id ASC` |
-| Generated at | `2026-10-06 16:24:55 UTC` |
-| Observation count | `767` |
+| Generated at | `2026-10-06 21:34:15 UTC` |
+| Observation count | `774` |
 | First memory | `2026-07-16 16:06:20` |
-| Last memory | `2026-10-06 16:24:30` |
+| Last memory | `2026-10-06 21:33:34` |
 | Legacy uppercase bucket check | `719` non-deleted rows still exist under `Sonoffice` locally; this snapshot intentionally uses lowercase `sonoffice` only. |
 
 ## Counts By Type
@@ -29,13 +29,13 @@ This file is the portable, versioned Engram context for the `sonoffice` project.
 |---|---:|
 | `architecture` | 21 |
 | `bugfix` | 180 |
-| `config` | 32 |
+| `config` | 35 |
 | `decision` | 50 |
 | `discovery` | 151 |
 | `documentation` | 3 |
 | `pattern` | 22 |
-| `preference` | 13 |
-| `session_summary` | 295 |
+| `preference` | 14 |
+| `session_summary` | 298 |
 
 ## Memory Entries
 
@@ -18853,3 +18853,200 @@ Refresh `docs/engram.md` from local Engram SQLite for project `sonoffice` withou
 ## Relevant Files
 - docs/engram.md — portable Engram memory snapshot to refresh.
 - docs/ai-context.md — explicitly out of scope and intentionally not touched.</code></pre>
+
+### #4604 — Committed internal production budget workflow
+
+- Date: `2026-10-06 16:27:30`
+- Type: `config`
+- Title: `Committed internal production budget workflow`
+- Topic key: `git/commit-c2fac2a`
+- Session ID: `manual-save-sonoffice`
+
+**Full content**
+
+<pre><code>**What**: Committed and pushed the accumulated production budget workflow changes in commit `c2fac2a feat(budgets): add internal production budget workflow`.
+**Why**: User requested implementing internal optional department/city and then committing/pushing all remaining pending changes.
+**Where**: Git branch `main`, pushed to `github-joseuno23:Joseuno23/Sonoffice.git`; includes internal production budget module, external/internal budget action permissions/seeds, portable Engram docs, contract select, Add Orden, and optional internal location fields.
+**Learned**: Fresh pre-commit audit marked the diff SAFE; `git diff --check` was clean; implementation agents reported `npm run typecheck` passed. Worktree was clean after push.</code></pre>
+
+### #4605 — Session summary: sonoffice
+
+- Date: `2026-10-06 16:27:37`
+- Type: `session_summary`
+- Title: `Session summary: sonoffice`
+- Topic key: `(none)`
+- Session ID: `manual-save-sonoffice`
+
+**Full content**
+
+<pre><code>## Goal
+Finalize internal production budget parity fixes, verify legacy optionality, then commit and push all pending Sonoffice changes.
+
+## Instructions
+- Verify legacy before changing behavior.
+- Commit and push all remaining pending changes after implementation.
+- No AI attribution in commits.
+
+## Discoveries
+- In legacy Producción Interna, `Departamento` and `Municipio` are only rendered for TeamBTL/root roles; saves use `FormData`, so missing fields are valid and must not be required globally.
+- Fresh pre-commit audit found no secrets, no conflict markers, `git diff --check` clean, and the huge `docs/engram.md` snapshot intentional.
+- Implementation agents reported `npm run typecheck` passed after the Add Orden, Contrato De Consumo, and optional location changes.
+
+## Accomplished
+- ✅ Made internal department/city optional in UI/API/repository while preserving external behavior.
+- ✅ Updated `docs/ai-context.md` and refreshed `docs/engram.md` portable memory snapshot.
+- ✅ Ran fresh pre-commit/pre-push audit; verdict SAFE.
+- ✅ Staged all pending changes, committed `c2fac2a feat(budgets): add internal production budget workflow`, and pushed to `main`.
+- ✅ Verified worktree clean after push.
+
+## Next Steps
+- On target DB/VM, run/apply media budget seeds (`012`, `013`, `014`) using `npm run db:apply-media-budget-seeds` or approved DB process.
+- Grant new action permissions to non-root roles as needed (`external-production-budgets.*`, `internal-production-budgets.*`, especially `internal-production-budgets.add-order`).
+- Smoke test Producción Interna and Externa forms with real clients/contracts and internal Add Orden.
+
+## Relevant Files
+- apps/api/src/budgets/internal-production/ — new internal production budget API module.
+- apps/web/src/pages/InternalProductionBudget*.tsx — internal route aliases over shared production budget UI.
+- apps/web/src/pages/ExternalProductionBudgetForm.tsx — shared form includes Contrato De Consumo and optional internal location fields.
+- apps/web/src/pages/ExternalProductionBudgets.tsx — shared list includes internal Add Orden.
+- database/sql/013_seed_external_production_budget_actions.sql — external budget actions.
+- database/sql/014_seed_internal_production_budget_actions.sql — internal budget actions including Add Orden.
+- scripts/apply-media-budget-seeds.js — manual seed runner.
+- docs/ai-context.md — handoff notes.
+- docs/engram.md — portable memory snapshot.</code></pre>
+
+### #4606 — Session summary: sonoffice
+
+- Date: `2026-10-06 16:37:33`
+- Type: `session_summary`
+- Title: `Session summary: sonoffice`
+- Topic key: `(none)`
+- Session ID: `manual-save-sonoffice`
+
+**Full content**
+
+<pre><code>## Goal
+Close the Sonoffice session after completing, committing, and pushing the production budget workflow changes.
+
+## Instructions
+- User requested session summary and closure.
+- No AI attribution in commits.
+- Keep future handoff ready for multi-machine work via `docs/ai-context.md` and `docs/engram.md`.
+
+## Discoveries
+- Engram historical `Sonoffice` memories were merged into lowercase canonical `sonoffice`; future sessions can rely on `sonoffice` by default.
+- `docs/engram.md` is the portable memory snapshot for another machine and should be refreshed when meaningful memories need to travel.
+- Legacy Producción Interna renders Departamento/Municipio only for TeamBTL/root, so migrated internal budgets must allow those fields to be empty/null.
+- Legacy `Contrato De Consumo` is a client-filtered select from `sys_contratos`, stored in `presup_prode.contrato` / `presup_prodi.contrato`, and is form-only.
+
+## Accomplished
+- ✅ Merged uppercase `Sonoffice` Engram history into lowercase canonical `sonoffice` without deleting the old bucket.
+- ✅ Created/updated portable context docs: `docs/engram.md` and `docs/ai-context.md`.
+- ✅ Added internal budget `Add Orden` action with backend permission validation and seed action.
+- ✅ Restored `Contrato De Consumo` select for external and internal production budget forms.
+- ✅ Made internal department/city optional while preserving external behavior.
+- ✅ Ran/followed verification: implementation agents reported `npm run typecheck` passed; `git diff --check` clean; fresh pre-commit audit SAFE.
+- ✅ Committed and pushed all pending changes to `main`: `c2fac2a feat(budgets): add internal production budget workflow`.
+- ✅ Verified `git status` clean after push.
+
+## Next Steps
+- On VM/target DB, apply media budget seeds (`012`, `013`, `014`) with `npm run db:apply-media-budget-seeds` or approved DB process.
+- Grant new action permissions to non-root roles as needed, especially `internal-production-budgets.add-order`.
+- Smoke test Producción Interna/Externa forms with real clients/contracts and internal Add Orden.
+- In next machine/session, read `docs/ai-context.md` first and use `docs/engram.md` if local Engram lacks context.
+
+## Relevant Files
+- docs/ai-context.md — operational handoff and recent behavior notes.
+- docs/engram.md — portable Engram memory snapshot.
+- apps/api/src/budgets/internal-production/ — internal production budget backend module.
+- apps/web/src/pages/InternalProductionBudget*.tsx — internal production budget frontend route aliases.
+- apps/web/src/pages/ExternalProductionBudgetForm.tsx — shared form with Contrato De Consumo and internal optional location fields.
+- apps/web/src/pages/ExternalProductionBudgets.tsx — shared listing with internal Add Orden.
+- database/sql/013_seed_external_production_budget_actions.sql — external budget actions.
+- database/sql/014_seed_internal_production_budget_actions.sql — internal budget actions.
+- scripts/apply-media-budget-seeds.js — manual DB seed runner.
+- package.json — seed runner script.</code></pre>
+
+### #4607 — Use neutral Spanish in project AGENTS
+
+- Date: `2026-10-06 16:53:44`
+- Type: `preference`
+- Title: `Use neutral Spanish in project AGENTS`
+- Topic key: `workflow/project-agents-startup`
+- Session ID: `manual-save-sonoffice`
+
+**Full content**
+
+<pre><code>**What**: Updated root `AGENTS.md` to use neutral Spanish instead of English.
+**Why**: User requested the project instruction file be written in neutral Spanish.
+**Where**: `AGENTS.md`.
+**Learned**: Project-level agent boot instructions should remain concise and Spanish-neutral for portability across agents and machines.</code></pre>
+
+### #4611 — Require legacy sources for module migration command
+
+- Date: `2026-10-06 21:22:43`
+- Type: `config`
+- Title: `Require legacy sources for module migration command`
+- Topic key: `workflow/new-module-command`
+- Session ID: `manual-save-sonoffice`
+
+**Full content**
+
+<pre><code>**What**: Updated `.opencode/commands/new-module.md` to explicitly stop and ask for legacy controllers, models, and views before implementing a migrated module.
+**Why**: User emphasized future agents must ask for controller/model/views so they know exactly what legacy code to analyze.
+**Where**: `.opencode/commands/new-module.md`.
+**Learned**: If only partial legacy sources are known, agents should explore with the available evidence and mark uncertainty, but not implement until there is enough legacy evidence.</code></pre>
+
+### #4612 — Session summary: sonoffice
+
+- Date: `2026-10-06 21:24:00`
+- Type: `session_summary`
+- Title: `Session summary: sonoffice`
+- Topic key: `(none)`
+- Session ID: `manual-save-sonoffice`
+
+**Full content**
+
+<pre><code>## Goal
+Create project-level agent startup instructions and an opencode command to guide future Sonoffice legacy module migrations.
+
+## Instructions
+- Keep project instruction files in neutral Spanish.
+- Future agents should read project context automatically instead of requiring repeated user reminders.
+- Command files belong under `.opencode/commands/` and require opencode restart to be loaded by a running session.
+
+## Discoveries
+- `.opencode/commands/` initially contained an empty file named `new-module.md ` with a trailing space; it was removed and replaced with the correct `new-module.md`.
+- `AGENTS.md` is intended as concise boot instructions only; `docs/ai-context.md` remains the operational handoff and `docs/engram.md` the portable memory snapshot.
+
+## Accomplished
+- ✅ Created root `AGENTS.md` in neutral Spanish with mandatory startup rules: read `docs/ai-context.md`, use Engram `sonoffice`, fall back to `docs/engram.md`, check `git status`, avoid legacy edits unless requested, validate permissions/seeds.
+- ✅ Added `.opencode/commands/new-module.md`, a Spanish command prompt for migrating new legacy modules: audit legacy first, identify controller/model/views/tables/validations/permissions, plan backend/frontend/seeds, verify, document, and save memory.
+- ✅ Updated `docs/ai-context.md` with the new command note.
+- ✅ Refreshed `docs/engram.md`; snapshot now has 772 entries.
+- ✅ Saved the new workflow/command in Engram.
+
+## Next Steps
+- Restart opencode so the new project command is discovered by the running UI/session.
+- Commit `AGENTS.md`, `.opencode/commands/new-module.md`, `docs/ai-context.md`, and `docs/engram.md` when ready.
+
+## Relevant Files
+- AGENTS.md — project startup instructions for agents.
+- .opencode/commands/new-module.md — reusable migration command prompt.
+- docs/ai-context.md — handoff note for the command.
+- docs/engram.md — refreshed portable memory snapshot.</code></pre>
+
+### #4613 — Created Sonoffice legacy migration skill
+
+- Date: `2026-10-06 21:33:34`
+- Type: `config`
+- Title: `Created Sonoffice legacy migration skill`
+- Topic key: `workflow/sonoffice-legacy-migration-skill`
+- Session ID: `manual-save-sonoffice`
+
+**Full content**
+
+<pre><code>**What**: Created project skill `sonoffice-legacy-migration` with reusable migration guardrails and registered it in `AGENTS.md` and `.opencode/commands/new-module.md`.
+**Why**: User wants future agents to apply key Sonoffice migration rules from memory: legacy-first, no hardcoded business values, DB-backed menus/actions/permissions, backend permission validation, neutral Spanish, and UI consistency.
+**Where**: `.opencode/skills/sonoffice-legacy-migration/SKILL.md`, `.opencode/commands/new-module.md`, `AGENTS.md`, `docs/ai-context.md`.
+**Learned**: The skill should trigger for module migrations and functional module changes, especially with legacy CodeIgniter, menus, permissions, actions, forms, lists, prints, or seeds.</code></pre>
