@@ -117,7 +117,7 @@ const infoIconPath = "M12 16v-4M12 8h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z";
 const linkedIconPath = "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71";
 
 interface Option {
-  id: number;
+  id: number | string;
   label: string;
 }
 interface CostOrderDetail {
@@ -334,6 +334,8 @@ const emptyHeader = {
   idCampana: "",
   idProducto: "",
   idServicio: "",
+  idDepartamento: "",
+  idCiudad: "",
   contrato: "0",
   ordenCliente: "",
   formaPago: "",
@@ -347,7 +349,8 @@ const emptyHeader = {
 };
 const emptyDetail = {
   id: null as number | null,
-  unidad: "1",
+  cantidad: "1",
+  unidad: "",
   idServicio: "",
   detalle: "",
   valor: "",
@@ -355,11 +358,47 @@ const emptyDetail = {
   incentivo: "0",
   costoIncentivo: "",
 };
+const unitOptions = [
+  { id: "1", label: "BTL" },
+  { id: "2", label: "MEDIOS" },
+  { id: "3", label: "PRODUCCIÓN" },
+  { id: "4", label: "DIGITAL" },
+  { id: "5", label: "DISEÑO" },
+  { id: "6", label: "SISTEMAS" },
+];
+const unitLabel = (value: unknown) => unitOptions.find((option) => option.id === String(value || ""))?.label || "—";
 
 export default function ExternalProductionBudgetForm() {
   const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams();
+  const isInternal = location.pathname.includes('/produccion-interna/');
+  const basePath = isInternal ? '/medios/presupuestos/produccion-interna' : '/medios/presupuestos/produccion-externa';
+  const budgetApi = isInternal ? {
+    options: api.getInternalProductionBudgetOptions,
+    defaults: api.getInternalProductionBudgetDefaults,
+    incentives: api.getInternalProductionBudgetIncentives,
+    get: api.getInternalProductionBudget,
+    create: api.createInternalProductionBudget,
+    update: api.updateInternalProductionBudget,
+    addDetail: api.addInternalProductionBudgetDetail,
+    updateDetail: api.updateInternalProductionBudgetDetail,
+    costOrderDetails: api.getInternalProductionBudgetCostOrderDetails,
+    addCostOrderDetail: api.addInternalProductionBudgetCostOrderDetail,
+    deleteDetail: api.deleteInternalProductionBudgetDetail,
+  } : {
+    options: api.getExternalProductionBudgetOptions,
+    defaults: api.getExternalProductionBudgetDefaults,
+    incentives: api.getExternalProductionBudgetIncentives,
+    get: api.getExternalProductionBudget,
+    create: api.createExternalProductionBudget,
+    update: api.updateExternalProductionBudget,
+    addDetail: api.addExternalProductionBudgetDetail,
+    updateDetail: api.updateExternalProductionBudgetDetail,
+    costOrderDetails: api.getExternalProductionBudgetCostOrderDetails,
+    addCostOrderDetail: api.addExternalProductionBudgetCostOrderDetail,
+    deleteDetail: api.deleteExternalProductionBudgetDetail,
+  };
   const isEdit = !!id;
   const [loading, setLoading] = useState(isEdit);
   const [message, setMessage] = useState<{
@@ -379,11 +418,16 @@ export default function ExternalProductionBudgetForm() {
   const [proveedor, setProveedor] = useState<Option | null>(null);
   const [campaigns, setCampaigns] = useState<Option[]>([]);
   const [products, setProducts] = useState<Option[]>([]);
+  const [contracts, setContracts] = useState<Option[]>([]);
   const [services, setServices] = useState<Option[]>([]);
+  const [departments, setDepartments] = useState<Option[]>([]);
+  const [cities, setCities] = useState<Option[]>([]);
   const [incentives, setIncentives] = useState<any[]>([]);
   const [ocIncentives, setOcIncentives] = useState<any[]>([]);
   const [ocIncentive, setOcIncentive] = useState("0");
   const [ocIncentiveCost, setOcIncentiveCost] = useState("");
+  const [ocInternalService, setOcInternalService] = useState("");
+  const [ocInternalUnit, setOcInternalUnit] = useState("1");
   const [editableCostIds, setEditableCostIds] = useState<number[]>([]);
   const [ocId, setOcId] = useState("");
   const [ocDetails, setOcDetails] = useState<CostOrderDetail[]>([]);
@@ -402,14 +446,21 @@ export default function ExternalProductionBudgetForm() {
   }, [location.pathname, location.state, navigate]);
 
   useEffect(() => {
-    api
-      .getExternalProductionBudgetOptions("services")
+    budgetApi
+      .options("services")
       .then((res) => setServices(res?.success ? res.data || [] : []));
-  }, []);
+  }, [isInternal]);
 
   useEffect(() => {
-    api
-      .getExternalProductionBudgetDefaults(header.idCliente, header.idServicio)
+    if (!isInternal) return;
+    budgetApi
+      .options("departments")
+      .then((res) => setDepartments(res?.success ? res.data || [] : []));
+  }, [isInternal]);
+
+  useEffect(() => {
+    budgetApi
+      .defaults(header.idCliente, header.idServicio)
       .then((res) => {
         if (!res?.success) return;
         setEditableCostIds(res.data.editableIncentiveCostServiceIds || []);
@@ -427,56 +478,72 @@ export default function ExternalProductionBudgetForm() {
     if (!header.idCliente) {
       setCampaigns([]);
       setProducts([]);
+      setContracts([]);
       return;
     }
-    api
-      .getExternalProductionBudgetOptions("campaigns", {
+    budgetApi
+      .options("campaigns", {
         clientId: header.idCliente,
       })
       .then((res) => setCampaigns(res?.success ? res.data || [] : []));
-    api
-      .getExternalProductionBudgetOptions("products", {
+    budgetApi
+      .options("products", {
         clientId: header.idCliente,
       })
       .then((res) => setProducts(res?.success ? res.data || [] : []));
-  }, [header.idCliente]);
+    budgetApi
+      .options("contracts", {
+        clientId: header.idCliente,
+      })
+      .then((res) => setContracts(res?.success ? res.data || [] : []));
+  }, [header.idCliente, isInternal]);
 
   useEffect(() => {
-    if (!header.idCliente || !header.idProveedor || !detail.idServicio) {
+    if (!isInternal || !header.idDepartamento) {
+      setCities([]);
+      return;
+    }
+    budgetApi
+      .options("cities", { departmentCode: header.idDepartamento })
+      .then((res) => setCities(res?.success ? res.data || [] : []));
+  }, [header.idDepartamento, isInternal]);
+
+  useEffect(() => {
+    if (!header.idCliente || (!isInternal && !header.idProveedor) || !detail.idServicio) {
       setIncentives([]);
       return;
     }
-    api
-      .getExternalProductionBudgetIncentives({
+    budgetApi
+      .incentives({
         idCliente: header.idCliente,
         idProveedor: header.idProveedor,
         idServicio: detail.idServicio,
       })
       .then((res) => setIncentives(res?.success ? res.data || [] : []))
       .catch(() => setIncentives([]));
-  }, [header.idCliente, header.idProveedor, detail.idServicio]);
+  }, [header.idCliente, header.idProveedor, detail.idServicio, isInternal]);
 
   useEffect(() => {
     setOcIncentive("0");
     setOcIncentiveCost("");
-    if (!header.idCliente || !header.idProveedor || !header.idServicio) {
+    if (!header.idCliente || (!isInternal && !header.idProveedor) || !header.idServicio) {
       setOcIncentives([]);
       return;
     }
-    api
-      .getExternalProductionBudgetIncentives({
+    budgetApi
+      .incentives({
         idCliente: header.idCliente,
         idProveedor: header.idProveedor,
         idServicio: header.idServicio,
       })
       .then((res) => setOcIncentives(res?.success ? res.data || [] : []))
       .catch(() => setOcIncentives([]));
-  }, [header.idCliente, header.idProveedor, header.idServicio]);
+  }, [header.idCliente, header.idProveedor, header.idServicio, isInternal]);
 
   const loadBudget = (budgetId: string | number) => {
     setLoading(true);
-    api
-      .getExternalProductionBudget(budgetId)
+    budgetApi
+      .get(budgetId)
       .then((res) => {
         if (!res?.success) {
           setMessage({
@@ -493,6 +560,8 @@ export default function ExternalProductionBudgetForm() {
           idCampana: String(b.idCampana || ""),
           idProducto: String(b.idProducto || ""),
           idServicio: String(b.idServicio || ""),
+          idDepartamento: String(b.idDepartamento || ""),
+          idCiudad: String(b.idCiudad || ""),
           contrato: String(b.contrato ?? 0),
           ordenCliente: b.ordenCliente || "",
           formaPago: b.formaPago || "",
@@ -530,8 +599,12 @@ export default function ExternalProductionBudgetForm() {
   }, [id, isEdit]);
 
   const subtotal = useMemo(
-    () => details.reduce((sum, row) => sum + Number(row.valor || 0), 0),
-    [details],
+    () => details.reduce((sum, row) => {
+      const quantity = Number(row.cantidad || 1) || 1;
+      const value = Number(row.valor || 0);
+      return sum + (isInternal ? value * quantity : value);
+    }, 0),
+    [details, isInternal],
   );
   const descuento = (subtotal * (Number(header.descuento) || 0)) / 100;
   const base = subtotal - descuento;
@@ -551,6 +624,7 @@ export default function ExternalProductionBudgetForm() {
       idCliente: opt ? String(opt.id) : "",
       idCampana: "",
       idProducto: "",
+      contrato: "0",
     }));
     setOcDetails([]);
   };
@@ -570,6 +644,7 @@ export default function ExternalProductionBudgetForm() {
       idCampana: Number(header.idCampana),
       idProducto: Number(header.idProducto),
       idServicio: Number(header.idServicio),
+      idCiudad: header.idCiudad ? Number(header.idCiudad) : null,
       descuento: Number(header.descuento),
       iva: Number(header.iva),
       spa: Number(header.spa),
@@ -578,14 +653,14 @@ export default function ExternalProductionBudgetForm() {
     };
     const call =
       isEdit && id
-        ? api.updateExternalProductionBudget(id, payload)
-        : api.createExternalProductionBudget(payload);
+        ? budgetApi.update(id, payload)
+        : budgetApi.create(payload);
     call
       .then((res) => {
         if (res?.success) {
           if (!isEdit && res.data?.id) {
             navigate(
-              `/medios/presupuestos/produccion-externa/${res.data.id}/editar`,
+              `${basePath}/${res.data.id}/editar`,
               { state: { message: res.message } },
             );
             return;
@@ -617,6 +692,7 @@ export default function ExternalProductionBudgetForm() {
       detail.costoIncentivo === "" ? undefined : Number(detail.costoIncentivo);
     const payload = {
       ...detail,
+      cantidad: Number(detail.cantidad || 1),
       idServicio: Number(detail.idServicio),
       valor: Number(detail.valor),
       iva: Number(detail.iva),
@@ -624,8 +700,8 @@ export default function ExternalProductionBudgetForm() {
       costoIncentivo: Number.isFinite(rawCost) ? rawCost : undefined,
     };
     const call = detail.id
-      ? api.updateExternalProductionBudgetDetail(id, detail.id, payload)
-      : api.addExternalProductionBudgetDetail(id, payload);
+      ? budgetApi.updateDetail(id, detail.id, payload)
+      : budgetApi.addDetail(id, payload);
     call
       .then((res) => {
         if (res?.success) {
@@ -646,8 +722,8 @@ export default function ExternalProductionBudgetForm() {
     if (!id || !ocId || ocLoading) return;
     setOcLoading(true);
     setMessage(null);
-    api
-      .getExternalProductionBudgetCostOrderDetails(id, ocId)
+    budgetApi
+      .costOrderDetails(id, ocId)
       .then((res) => {
         if (res?.success)
           setOcDetails(
@@ -685,11 +761,13 @@ export default function ExternalProductionBudgetForm() {
     const assigned = Number(row.assigned);
     setOcSaving(row.idDetalle);
     setMessage(null);
-    api
-      .addExternalProductionBudgetCostOrderDetail(id, {
+    budgetApi
+      .addCostOrderDetail(id, {
         orderId: Number(ocId),
         orderDetailId: row.idDetalle,
         assigned,
+        idServicio: isInternal ? Number(ocInternalService || header.idServicio) : undefined,
+        unidad: isInternal ? ocInternalUnit : undefined,
         incentivo: Number(ocIncentive || 0),
         costoIncentivo:
           ocIncentiveCost === "" ? undefined : Number(ocIncentiveCost),
@@ -701,10 +779,11 @@ export default function ExternalProductionBudgetForm() {
           setDetails((list) => [
             ...list,
             created
-              ? { ...created, detalle: created.detalle ?? row.detalle, idServicio: created.idServicio ?? header.idServicio, iva: created.iva ?? header.iva }
-              : {
+                  ? { ...created, detalle: created.detalle ?? row.detalle, idServicio: created.idServicio ?? header.idServicio, iva: created.iva ?? header.iva }
+                  : {
                   id: `oc-${ocId}-${row.idDetalle}`,
-                  unidad: "1",
+                  cantidad: "1",
+                  unidad: "",
                   idServicio: header.idServicio,
                   servicio: null,
                   detalle: row.detalle || "Sin detalle",
@@ -718,7 +797,15 @@ export default function ExternalProductionBudgetForm() {
                   editableCost: false,
                 },
           ]);
-          searchCostOrderDetails();
+          setOcDetails((list) =>
+            list
+              .map((detailRow) => {
+                if (detailRow.idDetalle !== row.idDetalle) return detailRow;
+                const nextDisponible = Math.max(Number(detailRow.disponible || 0) - assigned, 0);
+                return { ...detailRow, disponible: nextDisponible, assigned: String(nextDisponible) };
+              })
+              .filter((detailRow) => Number(detailRow.disponible || 0) > 0),
+          );
         } else
           setMessage({
             type: "error",
@@ -736,8 +823,8 @@ export default function ExternalProductionBudgetForm() {
 
   const deleteDetail = () => {
     if (!confirm?.id || !id) return;
-    api
-      .deleteExternalProductionBudgetDetail(id, confirm.id)
+    budgetApi
+      .deleteDetail(id, confirm.id)
       .then((res) => {
         if (res?.success) {
           setMessage({ type: "success", text: res.message });
@@ -757,7 +844,7 @@ export default function ExternalProductionBudgetForm() {
   const canSave =
     editable &&
     header.idCliente &&
-    header.idProveedor &&
+    (isInternal || header.idProveedor) &&
     header.idCampana &&
     header.idProducto &&
     header.idServicio;
@@ -829,14 +916,14 @@ export default function ExternalProductionBudgetForm() {
             }}
           >
             <a
-              href="/medios/presupuestos/produccion-externa/listar"
+              href={`${basePath}/listar`}
               onClick={(e) => {
                 e.preventDefault();
-                navigate("/medios/presupuestos/produccion-externa/listar");
+                navigate(`${basePath}/listar`);
               }}
               style={{ color: "var(--muted,#64748b)", textDecoration: "none" }}
             >
-              Presupuesto Producción Externa
+              Presupuesto Producción {isInternal ? 'Interna' : 'Externa'}
             </a>
             <span style={{ color: "var(--faint,#94a3b8)" }}>›</span>
             <span style={{ color: "var(--fg-2,#334155)", fontWeight: 600 }}>
@@ -855,14 +942,13 @@ export default function ExternalProductionBudgetForm() {
             {isEdit ? `Editar presupuesto #${id}` : "Nuevo presupuesto"}
           </h1>
           <p style={{ margin: 0, color: "var(--muted,#64748b)", fontSize: 14 }}>
-            Completa cabecera, detalles e incentivos del presupuesto de
-            producción externa.
+            Completa cabecera y detalles del presupuesto de producción {isInternal ? 'interna' : 'externa'}.
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button
             onClick={() =>
-              navigate("/medios/presupuestos/produccion-externa/listar")
+              navigate(`${basePath}/listar`)
             }
             style={button}
           >
@@ -906,7 +992,7 @@ export default function ExternalProductionBudgetForm() {
             border: "1px solid rgba(245,158,11,.22)",
           }}
         >
-          Sólo lectura: legacy sólo permite modificar estado activo.
+          Este presupuesto está en modo solo lectura. Solo se puede modificar en estado activo.
         </div>
       )}
       {message && (
@@ -960,22 +1046,24 @@ export default function ExternalProductionBudgetForm() {
                 placeholder="Selecciona un cliente"
                 disabled={!editable}
                 fetcher={(search) =>
-                  api.getExternalProductionBudgetOptions("clients", { search })
+                  budgetApi.options("clients", { search })
                 }
                 onSelect={onClienteChange}
               />
-              <SearchSelect
-                value={proveedor}
-                label="Proveedor"
-                placeholder="Selecciona un proveedor"
-                disabled={!editable}
-                fetcher={(search) =>
-                  api.getExternalProductionBudgetOptions("providers", {
-                    search,
-                  })
-                }
-                onSelect={onProveedorChange}
-              />
+              {!isInternal && (
+                <SearchSelect
+                  value={proveedor}
+                  label="Proveedor"
+                  placeholder="Selecciona un proveedor"
+                  disabled={!editable}
+                  fetcher={(search) =>
+                    budgetApi.options("providers", {
+                      search,
+                    })
+                  }
+                  onSelect={onProveedorChange}
+                />
+              )}
               <div>
                 <label style={label}>Servicio</label>
                 <select
@@ -1028,16 +1116,57 @@ export default function ExternalProductionBudgetForm() {
                 </select>
               </div>
               <div>
-                <label style={label}>Contrato</label>
-                <input
-                  disabled={!editable}
-                  value={header.contrato}
-                  onChange={(e) =>
-                    setH("contrato", e.target.value.replace(/[^0-9]/g, ""))
-                  }
+                <label style={label}>Contrato De Consumo</label>
+                <select
+                  disabled={!editable || !header.idCliente}
+                  value={header.contrato || "0"}
+                  onChange={(e) => setH("contrato", e.target.value)}
                   style={input}
-                />
+                >
+                  <option value="0">No Aplica</option>
+                  {contracts.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
               </div>
+              {isInternal && (
+                <>
+                  <div>
+                    <label style={label}>Departamento</label>
+                    <select
+                      disabled={!editable}
+                      value={header.idDepartamento}
+                      onChange={(e) => setHeader((h) => ({ ...h, idDepartamento: e.target.value, idCiudad: "" }))}
+                      style={input}
+                    >
+                      <option value="">Selecciona</option>
+                      {departments.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={label}>Municipio</label>
+                    <select
+                      disabled={!editable || !header.idDepartamento}
+                      value={header.idCiudad}
+                      onChange={(e) => setH("idCiudad", e.target.value)}
+                      style={input}
+                    >
+                      <option value="">Selecciona</option>
+                      {cities.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
               <div>
                 <label style={label}>Orden cliente</label>
                 <input
@@ -1047,15 +1176,17 @@ export default function ExternalProductionBudgetForm() {
                   style={input}
                 />
               </div>
-              <div>
-                <label style={label}>Forma de pago</label>
-                <input
-                  disabled={!editable}
-                  value={header.formaPago}
-                  onChange={(e) => setH("formaPago", e.target.value)}
-                  style={input}
-                />
-              </div>
+              {!isInternal && (
+                <div>
+                  <label style={label}>Forma de pago</label>
+                  <input
+                    disabled={!editable}
+                    value={header.formaPago}
+                    onChange={(e) => setH("formaPago", e.target.value)}
+                    style={input}
+                  />
+                </div>
+              )}
               <div>
                 <label style={label}>Cotización</label>
                 <input
@@ -1081,21 +1212,25 @@ export default function ExternalProductionBudgetForm() {
                 fontFamily: "inherit",
               }}
             />
-            <label style={{ ...label, marginTop: 16 }}>
-              Observación orden relacionada
-            </label>
-            <textarea
-              disabled={!editable}
-              value={header.ordenObservacion}
-              onChange={(e) => setH("ordenObservacion", e.target.value)}
-              rows={2}
-              style={{
-                ...input,
-                height: "auto",
-                paddingTop: 10,
-                fontFamily: "inherit",
-              }}
-            />
+            {!isInternal && (
+              <>
+                <label style={{ ...label, marginTop: 16 }}>
+                  Observación orden relacionada
+                </label>
+                <textarea
+                  disabled={!editable}
+                  value={header.ordenObservacion}
+                  onChange={(e) => setH("ordenObservacion", e.target.value)}
+                  rows={2}
+                  style={{
+                    ...input,
+                    height: "auto",
+                    paddingTop: 10,
+                    fontFamily: "inherit",
+                  }}
+                />
+              </>
+            )}
           </div>
 
           <div style={{ ...card, order: 3, gridColumn: "1 / -1", overflow: "visible" }}>
@@ -1106,7 +1241,7 @@ export default function ExternalProductionBudgetForm() {
                 color: "var(--fg,#0f172a)",
               }}
             >
-              Detalles e incentivos
+              {isInternal ? "Detalles" : "Detalles e incentivos"}
             </div>
             <div
               style={{
@@ -1115,8 +1250,22 @@ export default function ExternalProductionBudgetForm() {
                 margin: "3px 0 16px",
               }}
             >
-              Líneas del presupuesto e incentivo relacionado
+              {isInternal ? "Líneas del presupuesto" : "Líneas del presupuesto e incentivo relacionado"}
             </div>
+            {!id && (
+              <div
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  background: "var(--surface-2,#f7f8fa)",
+                  color: "var(--muted,#64748b)",
+                  fontSize: 13,
+                  border: "1px solid var(--border,#e5e8ec)",
+                }}
+              >
+                Guardá la cabecera para habilitar la carga de detalles.
+              </div>
+            )}
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {details.map((row) => {
                 const tooltipKey = `detail-${row.id}`;
@@ -1131,8 +1280,8 @@ export default function ExternalProductionBudgetForm() {
                         display: "grid",
                         gridTemplateColumns:
                           editable
-                            ? "minmax(220px,1fr) 68px 150px 44px 44px"
-                            : "minmax(220px,1fr) 68px 150px",
+                            ? "minmax(220px,1fr) 68px minmax(130px,160px) 150px 44px 44px"
+                            : "minmax(220px,1fr) 68px minmax(130px,160px) 150px",
                         gap: 10,
                         alignItems: "center",
                       }}
@@ -1144,10 +1293,11 @@ export default function ExternalProductionBudgetForm() {
                           zIndex: detailTooltip?.key === tooltipKey || detailTooltip?.key === linkedTooltipKey ? 20 : 1,
                         }}
                       >
-                        <input
+                        <textarea
                           value={detailText}
                           readOnly
-                          style={{ ...readonlyInput, paddingRight: hasLinkedCostOrder ? 72 : 42 }}
+                          rows={1}
+                          style={{ ...readonlyInput, minHeight: 44, padding: `11px ${hasLinkedCostOrder ? 72 : 42}px 10px 13px`, resize: "vertical", lineHeight: 1.35, fontFamily: "inherit" }}
                         />
                         {(detailTooltip?.key === tooltipKey || detailTooltip?.key === linkedTooltipKey) && (
                           <div style={detailTooltipBox}>
@@ -1210,11 +1360,14 @@ export default function ExternalProductionBudgetForm() {
                         )}
                       </div>
                       <input
-                        value={row.unidad || "1"}
+                        value={row.cantidad || "1"}
                         readOnly
-                        title="Unidad"
+                        title="Cantidad"
                         style={{ ...readonlyInput, textAlign: "center" }}
                       />
+                      <div style={{ ...readonlyInput, display: "flex", alignItems: "center", minWidth: 0 }} title="Unidad">
+                        {unitLabel(row.unidad)}
+                      </div>
                         <div style={monoTotal}>
                         <div
                           style={{
@@ -1227,17 +1380,18 @@ export default function ExternalProductionBudgetForm() {
                         >
                           Total
                         </div>
-                        {fmtMoneyFull(Number(row.valor || 0))}
+                        {fmtMoneyFull(isInternal ? Number(row.valor || 0) * (Number(row.cantidad || 1) || 1) : Number(row.valor || 0))}
                       </div>
                       {editable && (
                         <button
                           onClick={() =>
                             setDetail({
                               id: row.id,
+                              cantidad: String(row.cantidad || "1"),
                               unidad: row.unidad || "1",
                               idServicio: String(row.idServicio || ""),
                               detalle: row.detalle || "",
-                              valor: String(row.valor || ""),
+                              valor: String(isInternal ? row.valor || "" : Number(row.valor || 0) / (Number(row.cantidad || 1) || 1)),
                               iva: String(row.iva || header.iva || ""),
                               incentivo: String(row.incentivo || 0),
                               costoIncentivo:
@@ -1328,7 +1482,7 @@ export default function ExternalProductionBudgetForm() {
                 );
               })}
             </div>
-            {editable && (
+            {editable && id && (
               <div
                 style={{
                   marginTop: 14,
@@ -1337,7 +1491,7 @@ export default function ExternalProductionBudgetForm() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "minmax(220px,1fr) 68px 130px auto",
+                    gridTemplateColumns: "minmax(220px,1fr) 68px minmax(130px,160px) 130px auto",
                     gap: 10,
                     alignItems: "center",
                   }}
@@ -1398,12 +1552,23 @@ export default function ExternalProductionBudgetForm() {
                     )}
                   </div>
                   <input
-                    value={detail.unidad}
-                    onChange={(e) => setD("unidad", e.target.value)}
-                    placeholder="Unidad"
-                    title="Unidad"
+                    value={detail.cantidad}
+                    onChange={(e) => setD("cantidad", e.target.value.replace(/[^0-9.]/g, ""))}
+                    placeholder="1"
+                    title="Cantidad"
                     style={{ ...input, textAlign: "center" }}
                   />
+                  <select
+                    value={detail.unidad}
+                    onChange={(e) => setD("unidad", e.target.value)}
+                    title="Unidad"
+                    style={input}
+                  >
+                    <option value="">Unidad</option>
+                    {unitOptions.map((option) => (
+                      <option key={option.id} value={option.id}>{option.label}</option>
+                    ))}
+                  </select>
                   <input
                     value={detail.valor}
                     onChange={(e) =>
@@ -1525,7 +1690,7 @@ export default function ExternalProductionBudgetForm() {
                   margin: "3px 0 16px",
                 }}
               >
-                Busca una OC externa compatible y asigna el disponible al
+                Busca una OC {isInternal ? 'interna' : 'externa'} compatible y asigna el disponible al
                 presupuesto.
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -1554,6 +1719,45 @@ export default function ExternalProductionBudgetForm() {
                     gap: 10,
                   }}
                 >
+                  {isInternal && (
+                    <div
+                      style={{
+                        padding: 12,
+                        border: "1px solid var(--border,#e5e8ec)",
+                        borderRadius: 14,
+                        background: "var(--surface-2,#f7f8fa)",
+                        display: "grid",
+                        gridTemplateColumns: "minmax(180px,1fr) minmax(140px,180px)",
+                        gap: 10,
+                      }}
+                    >
+                      <div>
+                        <label style={label}>Servicio para detalle OC</label>
+                        <select
+                          value={ocInternalService || header.idServicio}
+                          onChange={(e) => setOcInternalService(e.target.value)}
+                          style={input}
+                        >
+                          <option value="">Seleccionar servicio</option>
+                          {services.map((service) => (
+                            <option key={service.id} value={service.id}>{service.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={label}>Unidad</label>
+                        <select
+                          value={ocInternalUnit}
+                          onChange={(e) => setOcInternalUnit(e.target.value)}
+                          style={input}
+                        >
+                          {unitOptions.map((unit) => (
+                            <option key={unit.id} value={unit.id}>{unit.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
                   {ocIncentives.length > 0 && (
                     <div
                       style={{
@@ -1780,28 +1984,32 @@ export default function ExternalProductionBudgetForm() {
                   style={input}
                 />
               </div>
-              <div>
-                <label style={label}>SPA %</label>
-                <input
-                  disabled={!editable}
-                  value={header.spa}
-                  onChange={(e) =>
-                    setH("spa", e.target.value.replace(/[^0-9.]/g, ""))
-                  }
-                  style={input}
-                />
-              </div>
-              <div>
-                <label style={label}>IVA SPA %</label>
-                <input
-                  disabled={!editable}
-                  value={header.ivaSpa}
-                  onChange={(e) =>
-                    setH("ivaSpa", e.target.value.replace(/[^0-9.]/g, ""))
-                  }
-                  style={input}
-                />
-              </div>
+              {!isInternal && (
+                <>
+                  <div>
+                    <label style={label}>SPA %</label>
+                    <input
+                      disabled={!editable}
+                      value={header.spa}
+                      onChange={(e) =>
+                        setH("spa", e.target.value.replace(/[^0-9.]/g, ""))
+                      }
+                      style={input}
+                    />
+                  </div>
+                  <div>
+                    <label style={label}>IVA SPA %</label>
+                    <input
+                      disabled={!editable}
+                      value={header.ivaSpa}
+                      onChange={(e) =>
+                        setH("ivaSpa", e.target.value.replace(/[^0-9.]/g, ""))
+                      }
+                      style={input}
+                    />
+                  </div>
+                </>
+              )}
             </div>
             <div
               style={{
@@ -1815,8 +2023,7 @@ export default function ExternalProductionBudgetForm() {
                 ["Valor", subtotal],
                 ["Descuento", -descuento],
                 ["IVA", iva],
-                ["SPA", spa],
-                ["IVA SPA", ivaSpa],
+                ...(isInternal ? [] : [["SPA", spa], ["IVA SPA", ivaSpa]]),
               ].map(([k, v]) => (
                 <div
                   key={k as string}
@@ -1860,7 +2067,7 @@ export default function ExternalProductionBudgetForm() {
       <ConfirmDialog
         open={!!confirm}
         title="Confirmar acción"
-        description="Esta acción aplica el comportamiento legacy para Producción Externa."
+        description={`Esta acción eliminará la línea seleccionada de Producción ${isInternal ? 'Interna' : 'Externa'}.`}
         confirmLabel="Confirmar"
         tone="danger"
         onConfirm={deleteDetail}

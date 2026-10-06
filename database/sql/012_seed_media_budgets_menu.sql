@@ -64,24 +64,14 @@ WHERE NOT EXISTS (
   SELECT 1 FROM app_menus WHERE code = CONCAT(parent.code, '.list')
 );
 
--- Opción Órdenes para los tipos que requieren órdenes de proveedor.
-INSERT INTO app_menus (code, parent_id, label, route, icon, sort_order, is_active)
-SELECT CONCAT(parent.code, '.orders'), parent.id, 'Órdenes', CONCAT('/medios/presupuestos/', seed.slug, '/ordenes'), 'receipt', 20, 1
-FROM app_menus AS parent
-JOIN (
-  SELECT 'prensa-aviso' AS slug, 'media.budgets.prensa-aviso' AS parent_code UNION ALL
-  SELECT 'clasificado', 'media.budgets.clasificado' UNION ALL
-  SELECT 'revista', 'media.budgets.revista' UNION ALL
-  SELECT 'radio', 'media.budgets.radio' UNION ALL
-  SELECT 'television', 'media.budgets.television' UNION ALL
-  SELECT 'produccion-externa', 'media.budgets.produccion-externa' UNION ALL
-  SELECT 'publicidad-exterior', 'media.budgets.publicidad-exterior' UNION ALL
-  SELECT 'impreso', 'media.budgets.impreso' UNION ALL
-  SELECT 'articulos-publicitarios', 'media.budgets.articulos-publicitarios'
-) AS seed ON seed.parent_code = parent.code
-WHERE NOT EXISTS (
-  SELECT 1 FROM app_menus WHERE code = CONCAT(parent.code, '.orders')
-);
+-- Limpieza: el submenu Órdenes pertenecía a la lógica legacy de pre-órdenes.
+DELETE permission
+FROM app_role_menu_permissions AS permission
+INNER JOIN app_menus AS menu ON menu.id = permission.menu_id
+WHERE menu.code LIKE 'media.budgets.%.orders';
+
+DELETE FROM app_menus
+WHERE code LIKE 'media.budgets.%.orders';
 
 -- Permisos de visibilidad para el rol 33 (mismo criterio que los menús de Medios existentes).
 -- El rol 1 (root) NO requiere filas: ve todos los menús activos de forma implícita.
@@ -93,33 +83,24 @@ WHERE menu.code IN (
   'media.budgets',
   'media.budgets.prensa-aviso',
   'media.budgets.prensa-aviso.list',
-  'media.budgets.prensa-aviso.orders',
   'media.budgets.clasificado',
   'media.budgets.clasificado.list',
-  'media.budgets.clasificado.orders',
   'media.budgets.revista',
   'media.budgets.revista.list',
-  'media.budgets.revista.orders',
   'media.budgets.radio',
   'media.budgets.radio.list',
-  'media.budgets.radio.orders',
   'media.budgets.television',
   'media.budgets.television.list',
-  'media.budgets.television.orders',
   'media.budgets.produccion-externa',
   'media.budgets.produccion-externa.list',
-  'media.budgets.produccion-externa.orders',
   'media.budgets.produccion-interna',
   'media.budgets.produccion-interna.list',
   'media.budgets.publicidad-exterior',
   'media.budgets.publicidad-exterior.list',
-  'media.budgets.publicidad-exterior.orders',
   'media.budgets.impreso',
   'media.budgets.impreso.list',
-  'media.budgets.impreso.orders',
   'media.budgets.articulos-publicitarios',
-  'media.budgets.articulos-publicitarios.list',
-  'media.budgets.articulos-publicitarios.orders'
+  'media.budgets.articulos-publicitarios.list'
 )
   AND EXISTS (
     SELECT 1 FROM sys_roles WHERE id_roles = 33

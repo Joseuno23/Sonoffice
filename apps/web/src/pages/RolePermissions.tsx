@@ -15,6 +15,8 @@ interface ActionModule { moduleCode: string; actions: ActionItem[]; }
 
 const MODULE_LABELS: Record<string, string> = {
   'cost-orders': 'Órdenes de costo',
+  'external-production-budgets': 'Presupuesto Producción Externa',
+  'internal-production-budgets': 'Presupuesto Producción Interna',
 };
 const moduleLabel = (code: string) => MODULE_LABELS[code] || code;
 
@@ -93,7 +95,17 @@ export default function RolePermissions() {
 
   // Menús agrupados por padre (jerarquía de 2+ niveles renderizada indentada).
   const rootMenus = useMemo(() => menus.filter((m) => !m.parentId), [menus]);
-  const childrenOf = (parentId: number) => menus.filter((m) => m.parentId === parentId);
+  const childrenByParent = useMemo(() => {
+    const map = new Map<number, MenuPerm[]>();
+    menus.forEach((menu) => {
+      if (!menu.parentId) return;
+      const list = map.get(menu.parentId) || [];
+      list.push(menu);
+      map.set(menu.parentId, list);
+    });
+    return map;
+  }, [menus]);
+  const childrenOf = (parentId: number) => childrenByParent.get(parentId) || [];
 
   const toggleMenu = (id: number) => {
     if (isRoot) return;
@@ -136,6 +148,30 @@ export default function RolePermissions() {
       mod.actions.forEach((a) => (on ? next.add(a.id) : next.delete(a.id)));
       return next;
     });
+  };
+
+  const branchIds = (parentId: number): number[] => {
+    const ids = [parentId];
+    childrenOf(parentId).forEach((child) => ids.push(...branchIds(child.id)));
+    return ids;
+  };
+
+  const renderMenuNode = (menu: MenuPerm, depth = 0) => {
+    const kids = childrenOf(menu.id);
+    const ids = branchIds(menu.id);
+    const branchOn = ids.every((id) => menuChecked.has(id));
+    const isParent = kids.length > 0;
+    return (
+      <div key={menu.id}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: `7px 4px 7px ${depth * 26 + 4}px` }}>
+          <Checkbox checked={menuChecked.has(menu.id)} disabled={isRoot} onChange={() => toggleMenu(menu.id)} />
+          <span style={{ fontSize: isParent ? 13.5 : 13, fontWeight: isParent ? 700 : 500, color: isParent ? 'var(--fg,#0f172a)' : 'var(--fg-2,#334155)', flex: 1 }}>{menu.label}</span>
+          {menu.route && <span style={{ fontSize: 11, color: 'var(--muted,#94a3b8)', fontFamily: 'JetBrains Mono,monospace' }}>{menu.route}</span>}
+          {isParent && !isRoot && <button onClick={() => toggleBranch(menu.id, !branchOn)} style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--brand,#0891b2)', background: 'transparent', border: 'none', cursor: 'pointer' }}>{branchOn ? 'Quitar rama' : 'Toda la rama'}</button>}
+        </div>
+        {kids.map((child) => renderMenuNode(child, depth + 1))}
+      </div>
+    );
   };
 
   const save = () => {
@@ -213,29 +249,7 @@ export default function RolePermissions() {
                   <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--muted,#64748b)', fontSize: 13 }}>Cargando permisos…</div>
                 ) : tab === 'views' ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {rootMenus.map((parent) => {
-                      const kids = childrenOf(parent.id);
-                      const allBranch = [parent.id, ...kids.map((k) => k.id)];
-                      const branchOn = allBranch.every((id) => menuChecked.has(id));
-                      return (
-                        <div key={parent.id} style={{ marginBottom: 6 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px' }}>
-                            <Checkbox checked={menuChecked.has(parent.id)} disabled={isRoot} onChange={() => toggleMenu(parent.id)} />
-                            <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--fg,#0f172a)', flex: 1 }}>{parent.label}</span>
-                            {kids.length > 0 && !isRoot && (
-                              <button onClick={() => toggleBranch(parent.id, !branchOn)} style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--brand,#0891b2)', background: 'transparent', border: 'none', cursor: 'pointer' }}>{branchOn ? 'Quitar rama' : 'Toda la rama'}</button>
-                            )}
-                          </div>
-                          {kids.map((child) => (
-                            <div key={child.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 4px 7px 30px' }}>
-                              <Checkbox checked={menuChecked.has(child.id)} disabled={isRoot} onChange={() => toggleMenu(child.id)} />
-                              <span style={{ fontSize: 13, color: 'var(--fg-2,#334155)', flex: 1 }}>{child.label}</span>
-                              {child.route && <span style={{ fontSize: 11, color: 'var(--muted,#94a3b8)', fontFamily: 'JetBrains Mono,monospace' }}>{child.route}</span>}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })}
+                    {rootMenus.map((parent) => renderMenuNode(parent))}
                     {rootMenus.length === 0 && <div style={{ color: 'var(--muted,#64748b)', fontSize: 13 }}>No hay menús para asignar.</div>}
                   </div>
                 ) : (

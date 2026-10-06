@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ResultSetHeader } from 'mysql2';
 import { DbService } from '../db/db.service';
-import { ActionCodeRow, ActionRow, RoleActionRow } from './permissions.types';
+import { ActionCodeRow, ActionRow, MenuAccessRow, RoleActionRow } from './permissions.types';
 
 @Injectable()
 export class PermissionsRepository {
@@ -31,6 +31,23 @@ export class PermissionsRepository {
       [moduleCode],
     );
     return rows.map((row) => row.action_code);
+  }
+
+  async hasRoleMenuAccess(roleId: number, menuCodes: string[]): Promise<boolean> {
+    if (!menuCodes.length) return false;
+    const placeholders = menuCodes.map(() => '?').join(', ');
+    const rows = await this.db.execute<MenuAccessRow[]>(
+      `SELECT m.id
+       FROM app_menus m
+       INNER JOIN app_role_menu_permissions p ON p.menu_id = m.id
+       WHERE p.role_id = ?
+         AND p.can_view = 1
+         AND m.is_active = 1
+         AND m.code IN (${placeholders})
+       LIMIT 1`,
+      [roleId, ...menuCodes],
+    );
+    return rows.length > 0;
   }
 
   // Catálogo completo de acciones (para la UI de asignación de permisos).

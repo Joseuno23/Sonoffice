@@ -3,20 +3,20 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { AuthGuard } from '../../auth/auth.guard';
 import { AuthUser, RequestUser } from '../../auth/auth-user.decorator';
-import { ExternalProductionBudgetsService } from './external-production-budgets.service';
+import { InternalProductionBudgetsService } from './internal-production-budgets.service';
 
-@Controller('budgets/external-production')
+@Controller('budgets/internal-production')
 @UseGuards(AuthGuard)
-export class ExternalProductionBudgetsController {
-  constructor(private readonly service: ExternalProductionBudgetsService) {}
+export class InternalProductionBudgetsController {
+  constructor(private readonly service: InternalProductionBudgetsService) {}
 
   @Get() list(@AuthUser() user: RequestUser, @Query() query: any) { return this.service.list(query, user.roleId); }
   @Get('statuses') statuses() { return this.service.statuses(); }
   @Get('defaults') defaults(@Query('idCliente') idCliente?: string, @Query('idServicio') idServicio?: string) { return this.service.defaults(idCliente, idServicio); }
-  @Get('options/:type') options(@Param('type') type: string, @Query('search') search?: string, @Query('clientId') clientId?: string) { return this.service.options(type, clientId ?? search); }
+  @Get('options/:type') options(@Param('type') type: string, @Query('search') search?: string, @Query('clientId') clientId?: string, @Query('departmentCode') departmentCode?: string) { return this.service.options(type, clientId ?? departmentCode ?? search); }
   @Get('incentives') incentives(@Query() query: any) { return this.service.incentives(query); }
   @Post() create(@AuthUser() user: RequestUser, @Body() body: any) { return this.service.create(user.userId, user.roleId, body); }
-  @Get(':id/print-data') printData(@AuthUser() user: RequestUser, @Param('id') id: string, @Query('orden') orden?: string) { return this.service.printData(id, user.roleId, orden); }
+  @Get(':id/print-data') printData(@AuthUser() user: RequestUser, @Param('id') id: string) { return this.service.printData(id, user.roleId); }
   @Get(':id/support') support(@AuthUser() user: RequestUser, @Param('id') id: string) { return this.service.support(id, user.roleId); }
   @Post(':id/support')
   @UseInterceptors(FileInterceptor('files', { limits: { fileSize: 10 * 1024 * 1024 } }))
@@ -34,10 +34,9 @@ export class ExternalProductionBudgetsController {
   @Delete(':id/details/:detailId') deleteDetail(@AuthUser() user: RequestUser, @Param('id') id: string, @Param('detailId') detailId: string) { return this.service.deleteDetail(id, detailId, user.userId, user.roleId); }
   @Get(':id/cost-order-details') costOrderDetails(@AuthUser() user: RequestUser, @Param('id') id: string, @Query('orderId') orderId?: string) { return this.service.costOrderDetails(id, orderId, user.roleId); }
   @Post(':id/cost-order-details') addCostOrderDetail(@AuthUser() user: RequestUser, @Param('id') id: string, @Body() body: any) { return this.service.addCostOrderDetail(id, user.userId, user.roleId, body); }
-  @Post(':id/print') print(@AuthUser() user: RequestUser, @Param('id') id: string, @Query('orden') orden?: string) { return this.service.print(id, user.roleId, orden); }
+  @Post(':id/print') print(@AuthUser() user: RequestUser, @Param('id') id: string) { return this.service.print(id, user.roleId); }
   @Post(':id/anule') anule(@AuthUser() user: RequestUser, @Param('id') id: string, @Body() body: any) { return this.service.anule(id, user.userId, user.roleId, body); }
   @Post(':id/duplicate') duplicate(@AuthUser() user: RequestUser, @Param('id') id: string) { return this.service.duplicate(id, user.userId, user.roleId); }
   @Post(':id/replace') replace(@AuthUser() user: RequestUser, @Param('id') id: string) { return this.service.replace(id, user.userId, user.roleId); }
   @Post(':id/order') addOrder(@AuthUser() user: RequestUser, @Param('id') id: string, @Body() body: any) { return this.service.addOrder(id, user.roleId, body); }
-  @Get(':id/orders') budgetOrders(@AuthUser() user: RequestUser, @Param('id') id: string) { return this.service.orders(id, user.roleId); }
 }

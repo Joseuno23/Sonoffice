@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { fmtMoneyFull } from '../lib/format';
 import { api } from '../services/api';
 
@@ -7,7 +7,7 @@ interface Party { name: string | null; nit: string | null; address: string | nul
 interface PrintData {
   company: { name: string; nit: string | null; address: string | null; city: string | null; phone: string | null };
   budget: { id: number; fecha: string | null; estado: string | null; copyLabel: string; ordenCliente: string | null; cotizacion: string | null; observacion: string | null; factura: string | number | null };
-  order: { id: number | null; observacion: string | null };
+  order: { id: number | null; observacion: string | null; copyLabel: string; history: string[] };
   client: Party;
   provider: Party;
   campaign: string | null;
@@ -44,28 +44,32 @@ function CompactRow({ label: rowLabel, value: rowValue }: { label: string; value
 
 export default function ExternalProductionBudgetPrint() {
   const { id } = useParams();
+  const location = useLocation();
   const [params] = useSearchParams();
   const [data, setData] = useState<PrintData | null>(null);
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const autoPrintStarted = useRef(false);
+  const isInternal = location.pathname.includes('/produccion-interna/');
+  const isOrderPrint = !isInternal && params.get('orden') === '1';
 
   useEffect(() => {
     let live = true;
     setLoading(true); setError(null);
-    api.getExternalProductionBudgetPrintData(id)
+    const request = isInternal ? api.getInternalProductionBudgetPrintData(id) : api.getExternalProductionBudgetPrintData(id, { order: isOrderPrint });
+    request
       .then((res) => { if (!live) return; res?.success ? setData(res.data) : setError(res?.message || 'No se pudo cargar el presupuesto'); })
       .catch(() => { if (live) setError('No se pudo cargar el presupuesto'); })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [id]);
+  }, [id, isInternal, isOrderPrint]);
 
   const runPrint = async () => {
     if (!id || printing) return;
     setPrinting(true); setError(null);
     try {
-      const res = await api.printExternalProductionBudget(id);
+      const res = isInternal ? await api.printInternalProductionBudget(id) : await api.printExternalProductionBudget(id, { order: isOrderPrint });
       if (!res?.success) { setError(res?.message || 'No se pudo preparar la impresión'); return; }
       window.print();
     } catch { setError('No se pudo preparar la impresión'); }
@@ -81,9 +85,23 @@ export default function ExternalProductionBudgetPrint() {
   useEffect(() => {
     if (!data) return;
     const previousTitle = document.title;
-    document.title = `Produccion-Externa_${fileSafe(data.budget.id)}_${fileSafe(data.client.name)}`;
+    document.title = `${isInternal ? 'Produccion-Interna' : isOrderPrint ? 'Orden-Externa' : 'Produccion-Externa'}_${fileSafe(isOrderPrint ? data.order.id : data.budget.id)}_${fileSafe(data.client.name)}`;
     return () => { document.title = previousTitle; };
-  }, [data]);
+  }, [data, isOrderPrint]);
+
+  const copyLabel = isOrderPrint ? data?.order.copyLabel : data?.budget.copyLabel;
+  const printTitle = data ? (isOrderPrint ? `ORDEN DE EXTERNA No. ${data.order.id ?? '—'}` : `${isInternal ? 'Int' : 'Ext'} No. ${data.budget.id}${data.budget.factura ? ` FACTURA ${data.budget.factura}` : ''}`) : '';
+  const totalRows: [string, number][] = data ? [
+    ['Valor', data.totals.valor],
+    [`Descuento (${data.totals.porcDescuento}%)`, -data.totals.descuento],
+    ['Subtotal', data.totals.subtotal],
+    [`IVA (${data.totals.porcIva}%)`, data.totals.iva],
+    ...(isOrderPrint || isInternal ? [] as [string, number][] : [
+      ['Subtotal', data.totals.subtotalConIva],
+      [`SPA (${data.totals.porcSpa}%)`, data.totals.spa],
+      [`IVA SPA (${data.totals.porcIvaSpa}%)`, data.totals.ivaSpa],
+    ] as [string, number][]),
+  ] : [];
 
   return <div style={page} className="external-budget-print-page">
     <style>{`
@@ -96,18 +114,18 @@ export default function ExternalProductionBudgetPrint() {
       @media (max-width: 720px) { .external-budget-print-grid { grid-template-columns: 1fr !important; } }
     `}</style>
     <div className="external-budget-print-toolbar" style={{ width: 'min(980px, 100%)', margin: '0 auto 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-      <div style={{ fontSize: 13, color: 'var(--muted,#64748b)' }}>Vista de impresión de presupuesto Producción Externa</div>
+      <div style={{ fontSize: 13, color: 'var(--muted,#64748b)' }}>Vista de impresión de {isOrderPrint ? 'orden' : 'presupuesto'} Producción {isInternal ? 'Interna' : 'Externa'}</div>
       <button onClick={runPrint} disabled={!data || printing} style={{ height: 40, padding: '0 18px', border: 'none', borderRadius: 11, background: 'var(--brand,#0891b2)', color: '#fff', fontWeight: 800, cursor: !data || printing ? 'default' : 'pointer', opacity: !data || printing ? .6 : 1 }}>{printing ? 'Preparando...' : 'Imprimir'}</button>
     </div>
     <div className="external-budget-print-sheet" style={sheet}>{loading ? <div style={{ padding: 42, textAlign: 'center', color: 'var(--muted,#64748b)' }}>Cargando presupuesto...</div> : error ? <div style={{ padding: 42, textAlign: 'center', color: '#b91c1c', fontWeight: 700 }}>{error}</div> : data && <>
       <div className="external-budget-print-keep" style={{ padding: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, background: 'linear-gradient(135deg, rgba(8,145,178,.10), rgba(15,23,42,.02))' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}><img src="/logo.png" alt="Sonoffice" style={{ width: 46, height: 46 }} /><div><div style={{ fontSize: 19, fontWeight: 900 }}>{data.company.name}</div><div style={{ marginTop: 4, fontSize: 12.5, color: 'var(--muted,#64748b)' }}>{[data.company.nit ? `NIT ${data.company.nit}` : null, data.company.address, data.company.city, data.company.phone].filter(Boolean).join(' · ')}</div></div></div>
-        <div style={{ textAlign: 'right' }}><div style={{ fontSize: 32, fontWeight: 950 }}>#{data.budget.id}</div></div>
+        <div style={{ textAlign: 'right' }}><div style={{ fontSize: 12, fontWeight: 900, color: 'var(--muted,#64748b)' }}>{copyLabel}</div><div style={{ fontSize: 22, fontWeight: 950 }}>{printTitle}</div></div>
       </div>
-      <div style={{ ...section, paddingTop: 13, paddingBottom: 13 }} className="external-budget-print-keep"><div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(0, 1fr)', columnGap: 26, rowGap: 6 }} className="external-budget-print-grid"><CompactRow label="Tipo" value="Producción Externa" /><CompactRow label="Estado" value={data.budget.estado} /><CompactRow label="Cliente" value={data.client.name} /><CompactRow label="NIT cliente" value={data.client.nit} /><CompactRow label="Proveedor" value={data.provider.name} /><CompactRow label="NIT proveedor" value={data.provider.nit} /><CompactRow label="Campaña" value={data.campaign} /><CompactRow label="Copia" value={data.budget.copyLabel} /><CompactRow label="Servicio" value={data.service} /><CompactRow label="Fecha" value={formatDate(data.budget.fecha)} /><CompactRow label="Producto" value={data.product} /><CompactRow label="Orden proveedor" value={data.order.id} /><CompactRow label="Orden cliente" value={data.budget.ordenCliente} /><CompactRow label="N° presupuesto" value={data.budget.id} /><CompactRow label="Cotización" value={data.budget.cotizacion} /><CompactRow label="Factura" value={data.budget.factura} /></div></div>
-      <div style={section}><div style={{ ...label, marginBottom: 10, textAlign: 'center' }}>Detalles del servicio</div><table className="external-budget-print-details" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}><thead><tr><th style={{ ...th, width: '58%' }}>Detalle</th><th style={{ ...th, width: '24%' }}>Incentivo</th><th style={{ ...th, width: '18%', textAlign: 'right' }}>Valor</th></tr></thead><tbody>{data.details.map((detail) => <tr key={detail.id}><td style={{ ...td, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{detail.detalle}</td><td style={{ ...td, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{detail.incentivo > 0 ? [detail.incentivoArea, detail.incentivoMedio].filter(Boolean).join(' · ') || `#${detail.incentivo}` : '—'}</td><td style={{ ...td, textAlign: 'right', fontWeight: 800, whiteSpace: 'nowrap' }}>{fmtMoneyFull(detail.valor)}</td></tr>)}</tbody></table></div>
-      <div style={{ ...section, display: 'grid', gridTemplateColumns: '1.25fr .75fr', gap: 14, paddingTop: 14, paddingBottom: 14 }} className="external-budget-print-grid external-budget-print-keep"><div><div style={label}>Observaciones</div><div style={{ marginTop: 6, minHeight: 38, padding: 10, border: '1px solid var(--border,#e5e8ec)', borderRadius: 10, fontSize: 11.5, color: 'var(--fg-2,#334155)', whiteSpace: 'pre-wrap' }}>{data.budget.observacion || 'Sin observaciones'}</div></div><div style={{ border: '1px solid var(--border,#e5e8ec)', borderRadius: 12, padding: 11 }}>{[['Valor', data.totals.valor], [`Descuento (${data.totals.porcDescuento}%)`, -data.totals.descuento], ['Subtotal', data.totals.subtotal], [`IVA (${data.totals.porcIva}%)`, data.totals.iva], ['Subtotal', data.totals.subtotalConIva], [`SPA (${data.totals.porcSpa}%)`, data.totals.spa], [`IVA SPA (${data.totals.porcIvaSpa}%)`, data.totals.ivaSpa]].map(([name, amount]) => <div key={String(name)} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '3px 0', fontSize: 11.5 }}><span>{name}</span><b>{fmtMoneyFull(Number(amount))}</b></div>)}<div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 6, paddingTop: 8, borderTop: '1px solid var(--border,#e5e8ec)', fontSize: 14, fontWeight: 900 }}><span>Total</span><span>{fmtMoneyFull(data.totals.total)}</span></div></div></div>
-      <div style={{ ...section, paddingTop: 12, paddingBottom: 10 }}><div style={label}>Nota</div><div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.35, color: 'var(--fg-2,#334155)' }}>Su firma en este presupuesto constituye su aprobación y autorización para que por su cuenta ordenemos todo el trabajo y servicio comprendido en el mismo a los precios y condiciones sujetos a aceptación de medios y proveedores.</div><div className="external-budget-print-keep" style={{ marginTop: 22, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, textAlign: 'center', fontSize: 11 }}><div><b>{data.creator.name || ''}</b><div style={{ borderTop: '1px solid #334155', marginTop: 14, paddingTop: 5 }}>Dpto de medios</div></div><div><div style={{ borderTop: '1px solid #334155', marginTop: 29, paddingTop: 5 }}>Ejecutivo de cuentas</div></div><div><div style={{ borderTop: '1px solid #334155', marginTop: 29, paddingTop: 5 }}>Cliente aprobación</div></div></div></div>
+      <div style={{ ...section, paddingTop: 13, paddingBottom: 13 }} className="external-budget-print-keep"><div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(0, 1fr)', columnGap: 26, rowGap: 6 }} className="external-budget-print-grid"><CompactRow label="Cliente" value={data.client.name} /><CompactRow label="NIT cliente" value={data.client.nit} />{!isInternal && <CompactRow label="Proveedor" value={data.provider.name} />}{!isInternal && <CompactRow label="NIT proveedor" value={data.provider.nit} />}<CompactRow label="Campaña" value={data.campaign} />{!isInternal && <CompactRow label="Orden proveedor" value={data.order.id} />}<CompactRow label="Servicio" value={data.service?.toUpperCase()} /><CompactRow label="N° presupuesto" value={data.budget.id} /><CompactRow label="Producto" value={data.product} /><CompactRow label="Orden cliente" value={data.budget.ordenCliente} /><CompactRow label="Cotización" value={data.budget.cotizacion} /><CompactRow label="Fecha" value={formatDate(data.budget.fecha)} />{!isInternal && !isOrderPrint && <CompactRow label="Factura" value={data.budget.factura} />}</div></div>
+      <div style={section}><div style={{ ...label, marginBottom: 10, textAlign: 'center' }}>Detalles del servicio</div><table className="external-budget-print-details" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}><thead><tr><th style={{ ...th, width: isInternal ? '76%' : '58%' }}>Detalle</th>{!isInternal && <th style={{ ...th, width: '24%' }}>Incentivo</th>}<th style={{ ...th, width: '18%', textAlign: 'right' }}>Valor</th></tr></thead><tbody>{data.details.map((detail) => <tr key={detail.id}><td style={{ ...td, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{detail.detalle}</td>{!isInternal && <td style={{ ...td, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{detail.incentivo > 0 ? [detail.incentivoArea, detail.incentivoMedio].filter(Boolean).join(' · ') || `#${detail.incentivo}` : '—'}</td>}<td style={{ ...td, textAlign: 'right', fontWeight: 800, whiteSpace: 'nowrap' }}>{fmtMoneyFull(detail.valor)}</td></tr>)}</tbody></table></div>
+      <div style={{ ...section, display: 'grid', gridTemplateColumns: '1.25fr .75fr', gap: 14, paddingTop: 14, paddingBottom: 14 }} className="external-budget-print-grid external-budget-print-keep"><div><div style={label}>Observaciones</div><div style={{ marginTop: 6, minHeight: 38, padding: 10, border: '1px solid var(--border,#e5e8ec)', borderRadius: 10, fontSize: 11.5, color: 'var(--fg-2,#334155)', whiteSpace: 'pre-wrap' }}>{(isOrderPrint ? data.order.observacion : data.budget.observacion) || 'Sin observaciones'}{isOrderPrint && data.order.history.length ? `\n${data.order.history.join('\n')}` : ''}</div></div><div style={{ border: '1px solid var(--border,#e5e8ec)', borderRadius: 12, padding: 11 }}>{totalRows.map(([name, amount]) => <div key={String(name)} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '3px 0', fontSize: 11.5 }}><span>{name}</span><b>{fmtMoneyFull(Number(amount))}</b></div>)}<div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 6, paddingTop: 8, borderTop: '1px solid var(--border,#e5e8ec)', fontSize: 14, fontWeight: 900 }}><span>Total</span><span>{fmtMoneyFull(isOrderPrint ? data.totals.subtotalConIva : data.totals.total)}</span></div></div></div>
+      <div style={{ ...section, paddingTop: 12, paddingBottom: 10 }}><div style={label}>Nota</div><div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.35, color: 'var(--fg-2,#334155)' }}>Su firma en este presupuesto constituye su aprobación y autorización para que por su cuenta ordenemos todo el trabajo y servicio comprendido en el mismo a los precios y condiciones sujetos a aceptación de medios y proveedores.</div>{isOrderPrint && <div style={{ marginTop: 8, fontSize: 11, lineHeight: 1.35, color: 'var(--fg-2,#334155)' }}>Favor elaborar su factura a nombre de Sonovista Publicidad S.A (Nit. 890.101.778-4) y enviarla al correo electrónico: facturacion@sonovista.co.</div>}<div className="external-budget-print-keep" style={{ marginTop: 22, display: 'grid', gridTemplateColumns: isOrderPrint ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 20, textAlign: 'center', fontSize: 11 }}><div><b>{data.creator.name || ''}</b><div style={{ borderTop: '1px solid #334155', marginTop: 14, paddingTop: 5 }}>Dpto de medios</div></div>{isOrderPrint ? <div><div style={{ borderTop: '1px solid #334155', marginTop: 29, paddingTop: 5 }}>Recibido Por</div></div> : <><div><div style={{ borderTop: '1px solid #334155', marginTop: 29, paddingTop: 5 }}>Ejecutivo de cuentas</div></div><div><div style={{ borderTop: '1px solid #334155', marginTop: 29, paddingTop: 5 }}>Cliente aprobación</div></div></>}</div></div>
     </>}</div>
   </div>;
 }

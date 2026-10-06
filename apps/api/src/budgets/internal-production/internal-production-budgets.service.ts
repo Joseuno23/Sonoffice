@@ -3,13 +3,13 @@ import { ConfigType } from '@nestjs/config';
 import { createReadStream } from 'fs';
 import { mkdir, stat, writeFile } from 'fs/promises';
 import { basename, resolve } from 'path';
-import externalProductionBudgetConfig from '../../config/external-production-budget.config';
+import internalProductionBudgetConfig from '../../config/internal-production-budget.config';
 import { FinancialTaxDefaults } from '../../financial-parameters/financial-tax-parameters.types';
 import { FinancialTaxParametersService } from '../../financial-parameters/financial-tax-parameters.service';
 import { PermissionsService } from '../../permissions/permissions.service';
-import { EXTERNAL_PRODUCTION_SUPPORT_DIR } from '../../uploads-path';
-import { ExternalProductionBudgetsRepository } from './external-production-budgets.repository';
-import { ApiResponse, BudgetPayload, CostOrderDetailPayload, DetailPayload, ListQuery } from './external-production-budgets.types';
+import { INTERNAL_PRODUCTION_SUPPORT_DIR } from '../../uploads-path';
+import { InternalProductionBudgetsRepository } from './internal-production-budgets.repository';
+import { ApiResponse, BudgetPayload, CostOrderDetailPayload, DetailPayload, ListQuery } from './internal-production-budgets.types';
 
 const PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 100;
@@ -24,20 +24,20 @@ const FALLBACK_COMPANY = {
   phone: null,
 };
 
-const LEGACY_EXTERNAL_MODULE = 6;
+const LEGACY_INTERNAL_MODULE = 7;
 const LEGACY_CANCELLED_STATUS = 9999;
-const EXTERNAL_PRODUCTION_BUDGETS_MODULE = 'external-production-budgets';
-const EXTERNAL_PRODUCTION_BUDGETS_MENU_CODES = ['media.budgets.produccion-externa.list', 'media.budgets.produccion-externa'];
+const INTERNAL_PRODUCTION_BUDGETS_MODULE = 'internal-production-budgets';
+const INTERNAL_PRODUCTION_BUDGETS_MENU_CODES = ['media.budgets.produccion-interna.list', 'media.budgets.produccion-interna'];
 const SUPPORT_MAX_SIZE = 10 * 1024 * 1024;
 
 @Injectable()
-export class ExternalProductionBudgetsService {
+export class InternalProductionBudgetsService {
   constructor(
-    private readonly repository: ExternalProductionBudgetsRepository,
+    private readonly repository: InternalProductionBudgetsRepository,
     private readonly taxParameters: FinancialTaxParametersService,
     private readonly permissionsService: PermissionsService,
-    @Inject(externalProductionBudgetConfig.KEY)
-    private readonly config: ConfigType<typeof externalProductionBudgetConfig>,
+    @Inject(internalProductionBudgetConfig.KEY)
+    private readonly config: ConfigType<typeof internalProductionBudgetConfig>,
   ) {}
 
   async list(query: ListQuery, roleId = 0): Promise<ApiResponse<any>> {
@@ -48,13 +48,13 @@ export class ExternalProductionBudgetsService {
       const pageSize = Math.min(this.toPositive(query.pageSize) ?? PAGE_SIZE, MAX_PAGE_SIZE);
       const [{ rows, total }, roleActions] = await Promise.all([
         this.repository.list({ search: this.text(query.search), estado: this.toPositive(query.estado) }, pageSize, (page - 1) * pageSize),
-        this.permissionsService.getRoleModuleActions(roleId, EXTERNAL_PRODUCTION_BUDGETS_MODULE),
+        this.permissionsService.getRoleModuleActions(roleId, INTERNAL_PRODUCTION_BUDGETS_MODULE),
       ]);
       const items = rows.map((row) => {
         const actions = this.resolveListActions(row, roleActions);
         return { ...row, fecha: this.date(row.fecha), editable: Number(row.idEstado) === this.config.statuses.active, incentivoXServicio: Number(row.incentivoXServicio ?? 0) === 1, actions, permittedActions: actions };
       });
-      return { success: true, data: { items, page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)), moduleCode: EXTERNAL_PRODUCTION_BUDGETS_MODULE, moduleActions: [...roleActions] }, message: null };
+      return { success: true, data: { items, page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)), moduleCode: INTERNAL_PRODUCTION_BUDGETS_MODULE, moduleActions: [...roleActions] }, message: null };
     } catch (error) { return this.error(error); }
   }
 
@@ -63,18 +63,16 @@ export class ExternalProductionBudgetsService {
     catch (error) { return this.error(error); }
   }
 
-  async defaults(idCliente?: unknown, idServicio?: unknown): Promise<ApiResponse<any>> {
-    const clientId = this.toPositive(idCliente);
-    const serviceId = this.toPositive(idServicio);
+  async defaults(_idCliente?: unknown, _idServicio?: unknown): Promise<ApiResponse<any>> {
     const defaults = await this.financialTaxDefaults();
-    const special = !!clientId && !!serviceId && clientId === this.config.specialSpaClientId && this.config.specialSpaServiceIds.includes(serviceId);
-    return { success: true, data: { iva: defaults.iva, spa: special ? defaults.specialSpa : defaults.spa, ivaSpa: defaults.ivaSpa, editableIncentiveCostServiceIds: this.config.editableIncentiveCostServiceIds }, message: null };
+    return { success: true, data: { iva: defaults.iva, spa: 0, ivaSpa: 0, editableIncentiveCostServiceIds: [] }, message: null };
   }
 
   async options(type: string, value?: unknown): Promise<ApiResponse<any>> {
     try {
-      if (!['clients', 'providers', 'services', 'campaigns', 'products', 'contracts'].includes(type)) return this.fail('Catálogo inválido');
+      if (!['clients', 'providers', 'services', 'campaigns', 'products', 'departments', 'cities', 'contracts'].includes(type)) return this.fail('Catálogo inválido');
       if ((type === 'campaigns' || type === 'products' || type === 'contracts') && !this.toPositive(value)) return { success: true, data: [], message: null };
+      if (type === 'cities' && !this.text(value)) return { success: true, data: [], message: null };
       return { success: true, data: await this.repository.options(type as any, type === 'campaigns' || type === 'products' || type === 'contracts' ? this.toPositive(value) : this.text(value)), message: null };
     } catch (error) { return this.error(error); }
   }
@@ -87,24 +85,12 @@ export class ExternalProductionBudgetsService {
     try {
       const data = await this.repository.get(id);
       if (!data.header) return this.fail('Presupuesto no encontrado');
-      return { success: true, data: { ...data.header, fecha: this.date(data.header.fecha), editable: Number(data.header.idEstado) === this.config.statuses.active, incentivoXServicio: Number(data.header.incentivoXServicio ?? 0) === 1, details: data.details.map((row) => ({ ...row, incentivo: Number(row.incentivo ?? 0), valor: Number(row.valor ?? 0), editableCost: row.idServicio ? this.config.editableIncentiveCostServiceIds.includes(Number(row.idServicio)) : false })), orders: data.orders.map((row) => ({ ...row, fecha: this.date(row.fecha), fechaImp: this.date(row.fechaImp) })) }, message: null };
+      return { success: true, data: { ...data.header, fecha: this.date(data.header.fecha), editable: Number(data.header.idEstado) === this.config.statuses.active, incentivoXServicio: false, details: data.details.map((row) => ({ ...row, incentivo: 0, valor: Number(row.valor ?? 0), editableCost: false })), orders: [] }, message: null };
     } catch (error) { return this.error(error); }
   }
 
-  async incentives(query: any): Promise<ApiResponse<any>> {
-    const clientId = this.toPositive(query.idCliente);
-    const providerId = this.toPositive(query.idProveedor);
-    const serviceId = this.toPositive(query.idServicio);
-    if (!clientId || !providerId || !serviceId) return this.fail('Cliente, proveedor y servicio son obligatorios');
-    try { return { success: true, data: (await this.repository.incentives(clientId, providerId, serviceId)).map((row) => ({ ...row, editableCost: this.config.editableIncentiveCostServiceIds.includes(serviceId) })), message: null }; }
-    catch (error) { return this.error(error); }
-  }
-
-  async orders(id?: unknown, roleId = 0): Promise<ApiResponse<any>> {
-    const forbidden = await this.requireModuleAccess(roleId);
-    if (forbidden) return forbidden;
-    try { return { success: true, data: (await this.repository.orders(this.toPositive(id))).map((row) => ({ ...row, fecha: this.date(row.fecha), fechaImp: this.date(row.fechaImp) })), message: null }; }
-    catch (error) { return this.error(error); }
+  async incentives(_query: any): Promise<ApiResponse<any>> {
+    return { success: true, data: [], message: null };
   }
 
   async support(idRaw: unknown, roleId: number): Promise<ApiResponse<any>> {
@@ -120,7 +106,7 @@ export class ExternalProductionBudgetsService {
         success: true,
         data: {
           budget: { id: budget.id, idEstado: budget.idEstado, estado: budget.estado, canUpload: Number(budget.idEstado ?? 0) !== LEGACY_CANCELLED_STATUS },
-          attachments: attachments.map((row) => ({ ...row, fecha: this.date(row.fecha), modulo: LEGACY_EXTERNAL_MODULE, downloadUrl: `/api/budgets/external-production/${id}/support/${encodeURIComponent(row.nombre || '')}` })),
+          attachments: attachments.map((row) => ({ ...row, fecha: this.date(row.fecha), modulo: LEGACY_INTERNAL_MODULE, downloadUrl: `/api/budgets/internal-production/${id}/support/${encodeURIComponent(row.nombre || '')}` })),
         },
         message: null,
       };
@@ -167,7 +153,7 @@ export class ExternalProductionBudgetsService {
   }
 
   async create(userId: number, roleId: number, payload: BudgetPayload): Promise<ApiResponse<any>> {
-    const forbidden = await this.requireAction(roleId, 'create', 'No tienes permiso para crear presupuestos de producción externa');
+    const forbidden = await this.requireAction(roleId, 'create', 'No tienes permiso para crear presupuestos de producción interna');
     if (forbidden) return forbidden;
     try {
       const normalized = this.normalizeHeader(payload, await this.financialTaxDefaults());
@@ -179,7 +165,7 @@ export class ExternalProductionBudgetsService {
   }
 
   async update(idRaw: unknown, userId: number, roleId: number, payload: BudgetPayload): Promise<ApiResponse<any>> {
-    const forbidden = await this.requireAction(roleId, 'edit', 'No tienes permiso para editar presupuestos de producción externa');
+    const forbidden = await this.requireAction(roleId, 'edit', 'No tienes permiso para editar presupuestos de producción interna');
     if (forbidden) return forbidden;
     const id = this.toPositive(idRaw);
     if (!id) return this.fail('Presupuesto no encontrado');
@@ -196,7 +182,7 @@ export class ExternalProductionBudgetsService {
   }
 
   async saveDetail(idRaw: unknown, detailRaw: unknown, roleId: number, payload: DetailPayload): Promise<ApiResponse<any>> {
-    const forbidden = await this.requireAction(roleId, 'edit', 'No tienes permiso para editar presupuestos de producción externa');
+    const forbidden = await this.requireAction(roleId, 'edit', 'No tienes permiso para editar presupuestos de producción interna');
     if (forbidden) return forbidden;
     const budgetId = this.toPositive(idRaw);
     const detailId = this.toPositive(detailRaw);
@@ -207,13 +193,12 @@ export class ExternalProductionBudgetsService {
       const result = await this.repository.saveDetail(budgetId, detailId ?? null, normalized);
       if (result === 'not-found') return this.fail('Presupuesto o detalle no encontrado');
       if (result === 'not-active') return this.fail('El presupuesto debe estar activo para ser modificado');
-      if (result === 'incentive-not-found') return this.fail('Incentivo no encontrado para el servicio seleccionado');
       return { success: true, data: { id: budgetId }, message: detailId ? 'Detalle actualizado correctamente' : 'Detalle agregado correctamente' };
     } catch (error) { return this.error(error); }
   }
 
   async deleteDetail(idRaw: unknown, detailRaw: unknown, userId: number, roleId: number): Promise<ApiResponse<any>> {
-    const forbidden = await this.requireAction(roleId, 'edit', 'No tienes permiso para editar presupuestos de producción externa');
+    const forbidden = await this.requireAction(roleId, 'edit', 'No tienes permiso para editar presupuestos de producción interna');
     if (forbidden) return forbidden;
     const budgetId = this.toPositive(idRaw);
     const detailId = this.toPositive(detailRaw);
@@ -228,7 +213,7 @@ export class ExternalProductionBudgetsService {
   }
 
   async costOrderDetails(idRaw: unknown, orderRaw: unknown, roleId: number): Promise<ApiResponse<any>> {
-    const forbidden = await this.requireAction(roleId, 'add-order', 'No tienes permiso para agregar órdenes de costo al presupuesto');
+    const forbidden = await this.requireAction(roleId, 'edit', 'No tienes permiso para editar presupuestos de producción interna');
     if (forbidden) return forbidden;
     const budgetId = this.toPositive(idRaw);
     const orderId = this.toPositive(orderRaw);
@@ -237,51 +222,41 @@ export class ExternalProductionBudgetsService {
       const result = await this.repository.costOrderDetails(budgetId, orderId);
       if (result === 'not-found') return this.fail('Presupuesto no encontrado');
       if (result === 'not-active') return this.fail('El presupuesto debe estar activo para agregar detalles de OC');
-      if (result === 'order-unavailable') return this.fail('Orden de costo no encontrada o incompatible con cliente/proveedor');
-      if (result === 'type-mismatch') return this.fail('La orden de costo debe ser externa y compatible con Producción Externa');
-      if (result === 'iva-mismatch') return this.fail('La orden de costo no tiene IVA compatible con el presupuesto');
+      if (result === 'order-unavailable') return this.fail('Orden de costo no encontrada o no disponible para asociar');
+      if (result === 'client-mismatch') return this.fail('Esta orden pertenece a otro cliente');
+      if (result === 'type-mismatch') return this.fail('La orden de costo debe ser interna y compatible con Producción Interna');
       return { success: true, data: result.map((row) => ({ ...row, total: Number(row.total ?? 0), totalCobrado: Number(row.totalCobrado ?? 0), disponible: this.round2(Number(row.disponible ?? 0)) })), message: result.length ? null : 'La orden no tiene detalles disponibles' };
     } catch (error) { return this.error(error); }
   }
 
   async addCostOrderDetail(idRaw: unknown, userId: number, roleId: number, payload: CostOrderDetailPayload): Promise<ApiResponse<any>> {
-    const forbidden = await this.requireAction(roleId, 'add-order', 'No tienes permiso para agregar órdenes de costo al presupuesto');
+    const forbidden = await this.requireAction(roleId, 'edit', 'No tienes permiso para editar presupuestos de producción interna');
     if (forbidden) return forbidden;
     const budgetId = this.toPositive(idRaw);
     const orderId = this.toPositive(payload.orderId);
     const orderDetailId = this.toPositive(payload.orderDetailId);
     const assigned = this.toNumber(payload.assigned, NaN);
-    const incentivo = this.toNullablePositive(payload.incentivo) ?? 0;
-    const rawCost = this.toNumber(payload.costoIncentivo, NaN);
-    const costoIncentivo = Number.isFinite(rawCost) ? rawCost : undefined;
+    const idServicio = this.toPositive(payload.idServicio);
+    const unidad = this.text(payload.unidad);
     if (!budgetId || !orderId || !orderDetailId || !Number.isFinite(assigned) || assigned <= 0) return this.fail('Orden, detalle y valor asignado son obligatorios');
     try {
-      const result = await this.repository.addCostOrderDetail(budgetId, orderId, orderDetailId, this.round2(assigned), userId, (await this.financialTaxDefaults()).iva, { incentivo, costoIncentivo });
+      const result = await this.repository.addCostOrderDetail(budgetId, orderId, orderDetailId, this.round2(assigned), userId, { idServicio, unidad });
       if (result === 'not-found') return this.fail('Presupuesto no encontrado');
       if (result === 'not-active') return this.fail('El presupuesto debe estar activo para agregar detalles de OC');
-      if (result === 'order-unavailable') return this.fail('Orden de costo no encontrada o incompatible con cliente/proveedor');
+      if (result === 'order-unavailable') return this.fail('Orden de costo no encontrada o no disponible para asociar');
+      if (result === 'client-mismatch') return this.fail('Esta orden pertenece a otro cliente');
       if (result === 'detail-unavailable') return this.fail('Detalle de orden de costo no encontrado');
-      if (result === 'incentive-not-found') return this.fail('Incentivo no encontrado para el servicio seleccionado');
-      if (result === 'type-mismatch') return this.fail('La orden de costo debe ser externa y compatible con Producción Externa');
-      if (result === 'iva-mismatch') return this.fail('La orden de costo no tiene IVA compatible con el presupuesto');
+      if (result === 'type-mismatch') return this.fail('La orden de costo debe ser interna y compatible con Producción Interna');
       if (result === 'unavailable') return this.fail('El valor asignado debe ser mayor a cero y no superar el disponible');
       return {
         success: true,
         data: {
           id: budgetId,
           detail: {
-            id: result,
-            unidad: '1',
-            idServicio: null,
-            servicio: null,
-            detalle: null,
-            valor: this.round2(assigned),
-            iva: null,
-            incentivo,
-            incentivoArea: null,
-            incentivoMedio: null,
-            valorAsignadoOc: this.round2(assigned),
-            ordenCosto: orderId,
+            ...result,
+            valor: this.round2(Number(result.valor ?? 0)),
+            incentivo: 0,
+            valorAsignadoOc: this.round2(Number(result.valorAsignadoOc ?? 0)),
             editableCost: false,
           },
         },
@@ -290,22 +265,18 @@ export class ExternalProductionBudgetsService {
     } catch (error) { return this.error(error); }
   }
 
-  async print(idRaw: unknown, roleId: number, orderRaw?: unknown): Promise<ApiResponse<any>> {
+  async print(idRaw: unknown, roleId: number): Promise<ApiResponse<any>> {
     const id = this.toPositive(idRaw);
     if (!id) return this.fail('Presupuesto no encontrado');
-    const isOrderPrint = String(orderRaw ?? '') === '1';
-    const forbidden = await this.requireAction(roleId, isOrderPrint ? 'print-order' : 'print', isOrderPrint ? 'No tienes permiso para imprimir órdenes de presupuesto' : 'No tienes permiso para imprimir presupuestos');
+    const forbidden = await this.requireAction(roleId, 'print', 'No tienes permiso para imprimir presupuestos');
     if (forbidden) return forbidden;
     try {
-      const result = await this.repository.markPrinted(id, isOrderPrint);
+      const result = await this.repository.markPrinted(id);
       if (result === 'not-found') return this.fail('Presupuesto no encontrado');
-      if (result === 'order-not-found') return this.fail('Orden no encontrada para el presupuesto');
       return {
         success: true,
-        data: { id, alreadyPrinted: result === 'already-printed', stateChanged: result === 'ok', orderPrinted: isOrderPrint },
-        message: isOrderPrint
-          ? 'Orden marcada como impresa'
-          : result === 'already-printed'
+        data: { id, alreadyPrinted: result === 'already-printed', stateChanged: result === 'ok', orderPrinted: false },
+        message: result === 'already-printed'
           ? 'Presupuesto ya estaba impreso'
           : result === 'skipped-state'
             ? 'Presupuesto listo para imprimir sin cambio de estado'
@@ -328,7 +299,7 @@ export class ExternalProductionBudgetsService {
   }
 
   async replace(idRaw: unknown, userId: number, roleId: number): Promise<ApiResponse<any>> {
-    const forbidden = await this.requireAction(roleId, 'replace', 'No tienes permiso para reemplazar presupuestos de producción externa');
+    const forbidden = await this.requireAction(roleId, 'replace', 'No tienes permiso para reemplazar presupuestos de producción interna');
     if (forbidden) return forbidden;
     const id = this.toPositive(idRaw);
     if (!id) return this.fail('Presupuesto no encontrado');
@@ -341,27 +312,26 @@ export class ExternalProductionBudgetsService {
     } catch (error) { return this.error(error); }
   }
 
-  async printData(idRaw: unknown, roleId: number, orderRaw?: unknown): Promise<ApiResponse<any>> {
+  async printData(idRaw: unknown, roleId: number): Promise<ApiResponse<any>> {
     const id = this.toPositive(idRaw);
     if (!id) return this.fail('Presupuesto no encontrado');
-    const isOrderPrint = String(orderRaw ?? '') === '1';
-    const forbidden = await this.requireAction(roleId, isOrderPrint ? 'print-order' : 'print', isOrderPrint ? 'No tienes permiso para imprimir órdenes de presupuesto' : 'No tienes permiso para imprimir presupuestos');
+    const forbidden = await this.requireAction(roleId, 'print', 'No tienes permiso para imprimir presupuestos');
     if (forbidden) return forbidden;
     try {
-      const { header, details, billing, bill, history } = await this.repository.printData(id);
+      const { header, details, billing, bill } = await this.repository.printData(id);
       if (!header) return this.fail('Presupuesto no encontrado');
       const valor = this.round2(Number(header.valor ?? 0));
       const porcDescuento = Number(header.descuento ?? 0);
       const porcIva = Number(header.iva ?? 0);
-      const porcSpa = Number(header.spa ?? 0);
-      const porcIvaSpa = Number(header.ivaSpa ?? 0);
       const descuento = this.round2(valor * (porcDescuento / 100));
       const subtotal = this.round2(valor - descuento);
       const iva = this.round2(subtotal * (porcIva / 100));
       const subtotalConIva = this.round2(subtotal + iva);
-      const spa = this.round2(subtotal * (porcSpa / 100));
-      const ivaSpa = this.round2(spa * (porcIvaSpa / 100));
-      const total = this.round2(Number(header.total ?? subtotalConIva + spa + ivaSpa));
+      const spa = 0;
+      const ivaSpa = 0;
+      const porcSpa = 0;
+      const porcIvaSpa = 0;
+      const total = this.round2(Number(header.total ?? subtotalConIva));
       const numImpresiones = Number(header.numImpresiones ?? -1);
       return {
         success: true,
@@ -389,13 +359,13 @@ export class ExternalProductionBudgetsService {
             observacion: header.observacion ?? null,
             factura: bill?.consecutivo ?? null,
           },
-          order: { id: header.ordenId ? Number(header.ordenId) : null, observacion: header.ordenObservacion ?? null, copyLabel: Number(header.ordenNumImpresiones ?? -1) < 0 ? 'ORIGINAL' : 'DUPLICADO', numImpresiones: Number(header.ordenNumImpresiones ?? -1), history: history.map((row) => row.texto).filter(Boolean) },
+          order: { id: null, observacion: null, copyLabel: 'ORIGINAL', numImpresiones: -1, history: [] },
           client: { name: header.cliente ?? null, nit: header.clienteDocumento ?? null, address: header.clienteDireccion ?? null, phone: header.clienteTelefono ?? null, city: header.clienteCiudad ?? null },
           provider: { name: header.proveedor ?? null, nit: header.proveedorDocumento ?? null, address: header.proveedorDireccion ?? null, phone: header.proveedorTelefono ?? null, city: header.proveedorCiudad ?? null },
           campaign: header.campana ?? null,
           product: header.producto ?? null,
           service: header.servicio ?? null,
-          details: details.map((row) => ({ id: Number(row.id), detalle: row.detalle ?? '', valor: Number(row.valor ?? 0), servicio: row.servicio ?? null, incentivo: Number(row.incentivo ?? 0), incentivoArea: row.incentivoArea ?? null, incentivoMedio: row.incentivoMedio ?? null })),
+          details: details.map((row) => ({ id: Number(row.id), detalle: row.detalle ?? '', valor: this.round2(Number(row.valor ?? 0) * (Number(row.cantidad ?? 1) || 1)), servicio: row.servicio ?? null, incentivo: Number(row.incentivo ?? 0), incentivoArea: row.incentivoArea ?? null, incentivoMedio: row.incentivoMedio ?? null })),
           totals: { valor, descuento, subtotal, iva, subtotalConIva, spa, ivaSpa, total, porcDescuento, porcIva, porcSpa, porcIvaSpa },
           creator: { name: header.usuario ?? null },
         },
@@ -405,7 +375,7 @@ export class ExternalProductionBudgetsService {
   }
 
   async anule(idRaw: unknown, userId: number, roleId: number, body: any): Promise<ApiResponse<any>> {
-    const forbidden = await this.requireAction(roleId, 'anule', 'No tienes permiso para anular presupuestos de producción externa');
+    const forbidden = await this.requireAction(roleId, 'anule', 'No tienes permiso para anular presupuestos de producción interna');
     if (forbidden) return forbidden;
     const id = this.toPositive(idRaw);
     if (!id) return this.fail('Presupuesto no encontrado');
@@ -423,7 +393,7 @@ export class ExternalProductionBudgetsService {
   }
 
   async duplicate(idRaw: unknown, userId: number, roleId: number): Promise<ApiResponse<any>> {
-    const forbidden = await this.requireAction(roleId, 'duplicate', 'No tienes permiso para duplicar presupuestos de producción externa');
+    const forbidden = await this.requireAction(roleId, 'duplicate', 'No tienes permiso para duplicar presupuestos de producción interna');
     if (forbidden) return forbidden;
     const id = this.toPositive(idRaw);
     if (!id) return this.fail('Presupuesto no encontrado');
@@ -437,12 +407,13 @@ export class ExternalProductionBudgetsService {
 
   private normalizeHeader(payload: BudgetPayload, defaults: Pick<FinancialTaxDefaults, 'iva' | 'spa' | 'ivaSpa'>): any | string {
     const idCliente = this.toPositive(payload.idCliente);
-    const idProveedor = this.toPositive(payload.idProveedor);
     const idCampana = this.toPositive(payload.idCampana);
     const idProducto = this.toPositive(payload.idProducto);
     const idServicio = this.toPositive(payload.idServicio);
-    if (!idCliente || !idProveedor || !idCampana || !idProducto || !idServicio) return 'Cliente, proveedor, campaña, producto y servicio son obligatorios';
-    return { idCliente, idProveedor, idCampana, idProducto, idServicio, contrato: this.toNullablePositive(payload.contrato) ?? 0, ordenCliente: this.text(payload.ordenCliente), formaPago: this.text(payload.formaPago), cotizacion: this.text(payload.cotizacion), observacion: this.text(payload.observacion), ordenObservacion: this.text(payload.ordenObservacion), descuento: this.toNumber(payload.descuento, 0), iva: this.toNumber(payload.iva, defaults.iva), spa: this.toNumber(payload.spa, defaults.spa), ivaSpa: this.toNumber(payload.ivaSpa, defaults.ivaSpa) };
+    const idDepartamento = this.text(payload.idDepartamento);
+    const idCiudad = this.toPositive(payload.idCiudad);
+    if (!idCliente || !idCampana || !idProducto || !idServicio) return 'Cliente, campaña, producto y servicio son obligatorios';
+    return { idCliente, idProveedor: 0, idCampana, idProducto, idServicio, contrato: this.toNullablePositive(payload.contrato) ?? 0, idDepartamento, idCiudad, ordenCliente: this.text(payload.ordenCliente), formaPago: null, cotizacion: this.text(payload.cotizacion), observacion: this.text(payload.observacion), ordenObservacion: null, descuento: this.toNumber(payload.descuento, 0), iva: this.toNumber(payload.iva, defaults.iva), spa: 0, ivaSpa: 0 };
   }
 
   private normalizeDetail(payload: DetailPayload, defaultIva: number): any | string {
@@ -451,10 +422,8 @@ export class ExternalProductionBudgetsService {
     const unidad = this.text(payload.unidad);
     const valor = this.toNumber(payload.valor, NaN);
     const cantidad = this.toNumber(payload.cantidad, 1);
-    const incentivo = this.toNullablePositive(payload.incentivo) ?? 0;
     if (!idServicio || !unidad || !this.validUnit(unidad) || !detalle || !Number.isFinite(valor) || valor < 0 || !Number.isFinite(cantidad) || cantidad <= 0) return 'Servicio, unidad, detalle, cantidad y valor son obligatorios';
-    const rawCost = this.toNumber(payload.costoIncentivo, NaN);
-    return { idServicio, detalle, valor: this.round2(valor * cantidad), cantidad, unidad, iva: this.toNumber(payload.iva, defaultIva), incentivo, costoIncentivo: incentivo > 0 && this.config.editableIncentiveCostServiceIds.includes(idServicio) && Number.isFinite(rawCost) ? rawCost : undefined };
+    return { idServicio, detalle, valor, cantidad, unidad, iva: this.toNumber(payload.iva, defaultIva), incentivo: 0 };
   }
 
   private financialTaxDefaults(): Promise<FinancialTaxDefaults> {
@@ -473,7 +442,7 @@ export class ExternalProductionBudgetsService {
   private round2(n: number): number { return Math.round(n * 100) / 100; }
   private text(value: unknown): string | null { return typeof value === 'string' && value.trim() ? value.trim() : null; }
   private date(value: Date | string | null): string | null { return value instanceof Date ? value.toISOString().slice(0, 10) : value ? String(value).slice(0, 10) : null; }
-  private supportDirectory(id: number): string { return resolve(EXTERNAL_PRODUCTION_SUPPORT_DIR, String(LEGACY_EXTERNAL_MODULE), String(id)); }
+  private supportDirectory(id: number): string { return resolve(INTERNAL_PRODUCTION_SUPPORT_DIR, String(LEGACY_INTERNAL_MODULE), String(id)); }
   private safeSupportFilename(value: string): string | null {
     const clean = basename(value).replace(/[\\/]/g, '').replace(/[<>:"|?*\u0000-\u001F]/g, '_').trim();
     if (!clean || clean === '.' || clean === '..') return null;
@@ -485,7 +454,6 @@ export class ExternalProductionBudgetsService {
     const prints = Number(row.numImpresiones ?? -1);
     const actions: string[] = [];
     if (permissions.has('print')) actions.push('print');
-    if (state !== LEGACY_CANCELLED_STATUS && permissions.has('print-order')) actions.push('print-order');
     if (state !== LEGACY_CANCELLED_STATUS && permissions.has('support')) actions.push('support');
     if (permissions.has('view-anule') && state === LEGACY_CANCELLED_STATUS) actions.push('view-anule');
     if (permissions.has('edit') && state === this.config.statuses.active && prints === -1) actions.push('edit');
@@ -495,19 +463,19 @@ export class ExternalProductionBudgetsService {
     if (permissions.has('anule') && ((state === this.config.statuses.active && prints === -1) || state === this.config.statuses.printed)) actions.push('anule');
     return actions;
   }
-  private async hasAction(roleId: number, action: string): Promise<boolean> { return (await this.permissionsService.getRoleModuleActions(roleId, EXTERNAL_PRODUCTION_BUDGETS_MODULE)).has(action); }
-  private async hasModuleAccess(roleId: number): Promise<boolean> { return this.permissionsService.hasMenuAccess(roleId, EXTERNAL_PRODUCTION_BUDGETS_MENU_CODES); }
-  private async requireModuleAccess(roleId: number): Promise<ApiResponse<any> | null> { return await this.hasModuleAccess(roleId) ? null : { success: false, data: null, message: 'No tienes permiso para consultar presupuestos de producción externa', errorCode: 'EXTERNAL_PRODUCTION_BUDGET_FORBIDDEN' }; }
+  private async hasAction(roleId: number, action: string): Promise<boolean> { return (await this.permissionsService.getRoleModuleActions(roleId, INTERNAL_PRODUCTION_BUDGETS_MODULE)).has(action); }
+  private async hasModuleAccess(roleId: number): Promise<boolean> { return this.permissionsService.hasMenuAccess(roleId, INTERNAL_PRODUCTION_BUDGETS_MENU_CODES); }
+  private async requireModuleAccess(roleId: number): Promise<ApiResponse<any> | null> { return await this.hasModuleAccess(roleId) ? null : { success: false, data: null, message: 'No tienes permiso para consultar presupuestos de producción interna', errorCode: 'INTERNAL_PRODUCTION_BUDGET_FORBIDDEN' }; }
   private async requireAction(roleId: number, action: string, message: string): Promise<ApiResponse<any> | null> {
     const forbidden = await this.requireModuleAccess(roleId);
     if (forbidden) return forbidden;
-    return await this.hasAction(roleId, action) ? null : { success: false, data: null, message, errorCode: 'EXTERNAL_PRODUCTION_BUDGET_FORBIDDEN' };
+    return await this.hasAction(roleId, action) ? null : { success: false, data: null, message, errorCode: 'INTERNAL_PRODUCTION_BUDGET_FORBIDDEN' };
   }
   private withDv(nit: string | number | null, dv: string | number | null): string | null {
     if (!nit) return null;
     const base = String(nit);
     return dv === null || dv === undefined || dv === '' ? base : `${base}-${dv}`;
   }
-  private fail(message: string): ApiResponse<any> { return { success: false, data: null, message, errorCode: 'EXTERNAL_PRODUCTION_BUDGET_VALIDATION' }; }
-  private error(error: unknown): ApiResponse<any> { console.error(error); return { success: false, data: null, message: 'No se pudo procesar Presupuesto Producción Externa', errorCode: 'EXTERNAL_PRODUCTION_BUDGET_SERVER_ERROR' }; }
+  private fail(message: string): ApiResponse<any> { return { success: false, data: null, message, errorCode: 'INTERNAL_PRODUCTION_BUDGET_VALIDATION' }; }
+  private error(error: unknown): ApiResponse<any> { console.error(error); return { success: false, data: null, message: 'No se pudo procesar Presupuesto Producción Interna', errorCode: 'INTERNAL_PRODUCTION_BUDGET_SERVER_ERROR' }; }
 }

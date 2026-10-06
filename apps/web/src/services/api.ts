@@ -175,7 +175,7 @@ export const api = {
   },
   getExternalProductionBudgetStatuses: () => req('/budgets/external-production/statuses'),
   getExternalProductionBudget: (id) => req('/budgets/external-production/' + encodeURIComponent(id)),
-  getExternalProductionBudgetPrintData: (id) => req('/budgets/external-production/' + encodeURIComponent(id) + '/print-data'),
+  getExternalProductionBudgetPrintData: (id, options: { order?: boolean } = {}) => req('/budgets/external-production/' + encodeURIComponent(id) + '/print-data' + (options.order ? '?orden=1' : '')),
   createExternalProductionBudget: (payload) => req('/budgets/external-production', { method: 'POST', body: JSON.stringify(payload) }),
   updateExternalProductionBudget: (id, payload) => req('/budgets/external-production/' + encodeURIComponent(id), { method: 'PUT', body: JSON.stringify(payload) }),
   addExternalProductionBudgetDetail: (id, payload) => req('/budgets/external-production/' + encodeURIComponent(id) + '/details', { method: 'POST', body: JSON.stringify(payload) }),
@@ -183,7 +183,7 @@ export const api = {
   deleteExternalProductionBudgetDetail: (id, detailId) => req('/budgets/external-production/' + encodeURIComponent(id) + '/details/' + encodeURIComponent(detailId), { method: 'DELETE' }),
   getExternalProductionBudgetCostOrderDetails: (id, orderId) => req('/budgets/external-production/' + encodeURIComponent(id) + '/cost-order-details?orderId=' + encodeURIComponent(orderId || '')),
   addExternalProductionBudgetCostOrderDetail: (id, payload) => req('/budgets/external-production/' + encodeURIComponent(id) + '/cost-order-details', { method: 'POST', body: JSON.stringify(payload) }),
-  printExternalProductionBudget: (id) => req('/budgets/external-production/' + encodeURIComponent(id) + '/print', { method: 'POST' }),
+  printExternalProductionBudget: (id, options: { order?: boolean } = {}) => req('/budgets/external-production/' + encodeURIComponent(id) + '/print' + (options.order ? '?orden=1' : ''), { method: 'POST' }),
   anuleExternalProductionBudget: (id, observacion) => req('/budgets/external-production/' + encodeURIComponent(id) + '/anule', { method: 'POST', body: JSON.stringify({ observacion }) }),
   duplicateExternalProductionBudget: (id) => req('/budgets/external-production/' + encodeURIComponent(id) + '/duplicate', { method: 'POST' }),
   replaceExternalProductionBudget: (id) => req('/budgets/external-production/' + encodeURIComponent(id) + '/replace', { method: 'POST' }),
@@ -194,7 +194,6 @@ export const api = {
     formData.append('files', file);
     return reqForm('/budgets/external-production/' + encodeURIComponent(id) + '/support', formData);
   },
-  deleteExternalProductionBudgetSupport: (id, filename) => req('/budgets/external-production/' + encodeURIComponent(id) + '/support/' + encodeURIComponent(filename), { method: 'DELETE' }),
   downloadExternalProductionBudgetSupport: (id, filename) => reqBlob('/budgets/external-production/' + encodeURIComponent(id) + '/support/' + encodeURIComponent(filename)),
   getExternalProductionBudgetDefaults: (idCliente, idServicio) => req('/budgets/external-production/defaults?idCliente=' + encodeURIComponent(idCliente || '') + '&idServicio=' + encodeURIComponent(idServicio || '')),
   getExternalProductionBudgetOptions: (type, params = {}) => {
@@ -209,7 +208,42 @@ export const api = {
     ).toString();
     return req('/budgets/external-production/incentives' + (qs ? '?' + qs : ''));
   },
-  getExternalProductionBudgetOrders: () => req('/budgets/external-production/orders'),
+  getInternalProductionBudgets: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '') as [string, string][],
+    ).toString();
+    return req('/budgets/internal-production' + (qs ? '?' + qs : ''));
+  },
+  getInternalProductionBudgetStatuses: () => req('/budgets/internal-production/statuses'),
+  getInternalProductionBudget: (id) => req('/budgets/internal-production/' + encodeURIComponent(id)),
+  getInternalProductionBudgetPrintData: (id) => req('/budgets/internal-production/' + encodeURIComponent(id) + '/print-data'),
+  createInternalProductionBudget: (payload) => req('/budgets/internal-production', { method: 'POST', body: JSON.stringify(payload) }),
+  updateInternalProductionBudget: (id, payload) => req('/budgets/internal-production/' + encodeURIComponent(id), { method: 'PUT', body: JSON.stringify(payload) }),
+  addInternalProductionBudgetDetail: (id, payload) => req('/budgets/internal-production/' + encodeURIComponent(id) + '/details', { method: 'POST', body: JSON.stringify(payload) }),
+  updateInternalProductionBudgetDetail: (id, detailId, payload) => req('/budgets/internal-production/' + encodeURIComponent(id) + '/details/' + encodeURIComponent(detailId), { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteInternalProductionBudgetDetail: (id, detailId) => req('/budgets/internal-production/' + encodeURIComponent(id) + '/details/' + encodeURIComponent(detailId), { method: 'DELETE' }),
+  getInternalProductionBudgetCostOrderDetails: (id, orderId) => req('/budgets/internal-production/' + encodeURIComponent(id) + '/cost-order-details?orderId=' + encodeURIComponent(orderId || '')),
+  addInternalProductionBudgetCostOrderDetail: (id, payload) => req('/budgets/internal-production/' + encodeURIComponent(id) + '/cost-order-details', { method: 'POST', body: JSON.stringify(payload) }),
+  printInternalProductionBudget: (id) => req('/budgets/internal-production/' + encodeURIComponent(id) + '/print', { method: 'POST' }),
+  anuleInternalProductionBudget: (id, observacion) => req('/budgets/internal-production/' + encodeURIComponent(id) + '/anule', { method: 'POST', body: JSON.stringify({ observacion }) }),
+  duplicateInternalProductionBudget: (id) => req('/budgets/internal-production/' + encodeURIComponent(id) + '/duplicate', { method: 'POST' }),
+  replaceInternalProductionBudget: (id) => req('/budgets/internal-production/' + encodeURIComponent(id) + '/replace', { method: 'POST' }),
+  addInternalProductionBudgetOrder: (id, order) => req('/budgets/internal-production/' + encodeURIComponent(id) + '/order', { method: 'POST', body: JSON.stringify({ order }) }),
+  getInternalProductionBudgetSupport: (id) => req('/budgets/internal-production/' + encodeURIComponent(id) + '/support'),
+  uploadInternalProductionBudgetSupport: (id, file) => {
+    const formData = new FormData();
+    formData.append('files', file);
+    return reqForm('/budgets/internal-production/' + encodeURIComponent(id) + '/support', formData);
+  },
+  downloadInternalProductionBudgetSupport: (id, filename) => reqBlob('/budgets/internal-production/' + encodeURIComponent(id) + '/support/' + encodeURIComponent(filename)),
+  getInternalProductionBudgetDefaults: (idCliente, idServicio) => req('/budgets/internal-production/defaults?idCliente=' + encodeURIComponent(idCliente || '') + '&idServicio=' + encodeURIComponent(idServicio || '')),
+  getInternalProductionBudgetOptions: (type, params = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '') as [string, string][],
+    ).toString();
+    return req('/budgets/internal-production/options/' + encodeURIComponent(type) + (qs ? '?' + qs : ''));
+  },
+  getInternalProductionBudgetIncentives: () => Promise.resolve({ success: true, data: [], message: null }),
   getCostOrdersReportOptions: () => req('/reports/cost-orders/options'),
   downloadCostOrdersReport: (params = {}) => {
     const qs = new URLSearchParams(

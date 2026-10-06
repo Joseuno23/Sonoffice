@@ -1,9 +1,21 @@
 # AI Context — Sonoffice
 
-Última actualización: 2026-09-18
+Última actualización: 2026-10-06
 
 Este archivo es el handoff oficial para trabajar `Sonoffice` desde más de una máquina
 o con más de un agente. GitHub sincroniza código; este archivo sincroniza contexto.
+
+## Contexto Engram portable
+
+Antes de tocar código en una máquina nueva, leer y verificar `docs/engram.md`.
+Ese archivo es el snapshot versionado de memorias Engram para compartir contexto
+entre equipos cuando la SQLite local de Engram no está disponible o no coincide.
+
+- Bucket canónico de Engram: `sonoffice` en minúscula.
+- El bucket histórico `Sonoffice` ya fue migrado hacia `sonoffice` para el
+  contexto inicial portable; no guardar memorias nuevas en `Sonoffice`.
+- Si Engram local y `docs/engram.md` difieren, usar `docs/engram.md` como
+  baseline de arranque y luego guardar nuevas memorias en `sonoffice`.
 
 ## Regla irrompible
 
@@ -21,6 +33,23 @@ Se considera “importante” cualquier cambio que afecte:
 - coordinación Mac/Windows o handoff entre agentes.
 
 Si un agente empieza a trabajar en Windows, debe leer este archivo ANTES de tocar código.
+
+## Reglas irrompibles de migración ERP
+
+- Todo menú nuevo, botón nuevo o acción nueva DEBE tener permisos administrables
+  en el sistema nuevo (`app_menus`, `app_actions`, permisos de rol y validación
+  backend). Solo se omite si el usuario lo indica explícitamente.
+- Ocultar botones en frontend NO alcanza: cada endpoint que ejecute una acción
+  debe validar el permiso correspondiente en backend.
+- Para cada módulo legacy a migrar, si el usuario no indicó las fuentes, pedir
+  primero controlador, modelo y vistas antes de implementar. No asumir rutas ni
+  flujos desde nombres de menú.
+- Las reglas de permisos son parte del alcance base de migración de cada módulo,
+  no un follow-up opcional.
+- Cada módulo migrado debe incluir sus SQL necesarios (`app_menus`, `app_actions`,
+  permisos/datos base, etc.) y esos SQL deben agregarse al comando de aplicación
+  de seeds correspondiente para que, después del deploy en VM, las novedades de
+  base de datos puedan aplicarse de forma segura e idempotente.
 
 ## Flujo multi-equipo
 
@@ -67,7 +96,6 @@ de producción externa y ajustes alrededor de órdenes de costo.
   - `apps/web/src/pages/ExternalProductionBudgets.tsx`
   - `apps/web/src/pages/ExternalProductionBudgetForm.tsx`
   - `apps/web/src/pages/ExternalProductionBudgetPrint.tsx`
-  - `apps/web/src/pages/ExternalProductionBudgetOrders.tsx`
   - `apps/web/src/pages/ExternalProductionBudgetSupport.tsx`
   - `apps/web/src/pages/BudgetPlaceholder.tsx`
   - `apps/web/src/components/ToastMessage.tsx`
@@ -155,6 +183,131 @@ de producción externa y ajustes alrededor de órdenes de costo.
   - `apps/api/src/cost-orders/cost-orders.service.ts`
   - `apps/api/src/cost-orders/cost-orders.types.ts`
   - `apps/web/src/pages/CostOrderPrint.tsx`
+- 2026-09-24: Presupuesto de producción externa ahora distingue impresión de
+  presupuesto vs. `Imprimir Orden` con `?orden=1`. La orden reutiliza el
+  imprimible migrado pero replica diferencias legacy: título `ORDEN DE EXTERNA`,
+  copia desde `ordenes.num_impresiones`, observación/historial de orden, total sin
+  SPA/IVA SPA, nota de facturación a Sonovista y firmas `Dpto de medios` /
+  `Recibido Por`. El side effect de imprimir orden marca el presupuesto como
+  impreso según regla legacy y además incrementa `ordenes.num_impresiones`. La UI
+  de soporte de pauta no expone ni mantiene endpoint de eliminar adjuntos, igual
+  que el legacy de soporte.
+  - `apps/api/src/budgets/external-production/external-production-budgets.controller.ts`
+  - `apps/api/src/budgets/external-production/external-production-budgets.service.ts`
+  - `apps/api/src/budgets/external-production/external-production-budgets.repository.ts`
+  - `apps/api/src/budgets/external-production/external-production-budgets.types.ts`
+  - `apps/web/src/pages/ExternalProductionBudgetPrint.tsx`
+  - `apps/web/src/pages/ExternalProductionBudgetSupport.tsx`
+  - `apps/web/src/services/api.ts`
+- 2026-09-25: Limpieza del submenu obsoleto `Órdenes` dentro de cada tipo de
+  presupuesto. Ese submenu pertenecía a pre-órdenes legacy y ya no se crea en el
+  seed; si existía, el seed elimina sus filas y permisos. Se removieron las rutas
+  frontend placeholder `/medios/presupuestos/:tipo/ordenes` y la página/listado
+  global de órdenes de Producción Externa. Se mantiene intacto el flujo válido de
+  Producción Externa: acciones de fila `Imprimir Orden` / `Add Orden`, impresión
+  con `?orden=1`, endpoint `POST /budgets/external-production/:id/order` y
+  consulta por presupuesto `GET /budgets/external-production/:id/orders`.
+  - `database/sql/012_seed_media_budgets_menu.sql`
+  - `apps/web/src/routes/AppRoutes.tsx`
+  - `apps/web/src/pages/BudgetPlaceholder.tsx`
+  - `apps/web/src/services/api.ts`
+  - `apps/api/src/budgets/external-production/external-production-budgets.controller.ts`
+- 2026-09-25: Defensa runtime para bases que ya tenían aplicado el seed viejo:
+  la API de menús filtra códigos `media.budgets.%.orders` en menús visibles,
+  menús activos y administración de menús. Esto oculta filas stale aunque sigan en
+  `app_menus`, sin afectar órdenes de costo ni las acciones válidas por
+  presupuesto externo (`Imprimir Orden`, `Add Orden`, endpoint per-budget e
+  impresión con `?orden=1`). La limpieza física de DB sigue recomendada.
+  - `apps/api/src/menus/menus.repository.ts`
+- 2026-09-25: Migración inicial de Presupuesto Producción Interna como módulo
+  separado (`internal-production-budgets`, tipo 7). Usa `presup_prodi` /
+  `det_prodi`, proveedor fijo `SONOVISTA` (`pvcl_id_prov = 0`), servicio de
+  cabecera `cod_ser`, total sin SPA/IVA SPA y NO crea ni usa `ordenes`.
+  Acciones administrables: `create`, `edit`, `print`, `support`, `duplicate`,
+  `replace`, `anule`, `view-anule`; no existen `print-order` ni `add-order`.
+  La asociación de detalle desde OC queda bajo permiso `edit`, exige OC tipo `I`
+  y aplica incremento interno desde `sys_data_billing.porcentaje_interna` con
+  mínimo/fallback 20%, pero reversa OC usando el valor real asignado.
+  - `apps/api/src/budgets/internal-production/`
+  - `apps/api/src/config/internal-production-budget.config.ts`
+  - `database/sql/014_seed_internal_production_budget_actions.sql`
+  - `apps/web/src/pages/InternalProductionBudget*.tsx`
+  - `apps/web/src/pages/ExternalProductionBudget*.tsx`
+  - `apps/web/src/services/api.ts`
+- 2026-09-25: Producción Externa migró runtime de botones desde legacy
+  `sys_roles_button/sys_button` hacia `app_actions` con módulo
+  `external-production-budgets`, siguiendo el patrón de Órdenes de costo. El seed
+  `013_seed_external_production_budget_actions.sql` registra acciones administrables
+  (`create`, `edit`, `print`, `print-order`, `support`, `duplicate`, `replace`,
+  `add-order`, `anule`, `view-anule`) sin asignarlas a roles; root mantiene acceso
+  implícito por `PermissionsService`. El listado devuelve `moduleActions` para el
+  botón “Nuevo presupuesto” y acciones de fila filtradas por permisos + reglas de
+  estado. La pantalla de permisos de rol ahora renderiza menús recursivamente para
+  administrar rutas profundas como `media > budgets > produccion-externa > list`.
+  - `database/sql/013_seed_external_production_budget_actions.sql`
+  - `apps/api/src/budgets/external-production/external-production-budgets.module.ts`
+  - `apps/api/src/budgets/external-production/external-production-budgets.controller.ts`
+  - `apps/api/src/budgets/external-production/external-production-budgets.service.ts`
+  - `apps/api/src/budgets/external-production/external-production-budgets.repository.ts`
+  - `apps/web/src/pages/ExternalProductionBudgets.tsx`
+  - `apps/web/src/pages/RolePermissions.tsx`
+- 2026-09-25: Estabilización de Presupuesto Producción Interna: el frontend
+  reutiliza las pantallas de Producción Externa detectando la ruta interna, pero
+  filtra defensivamente `print-order` y `add-order` para Interna, oculta SPA/IVA
+  SPA y usa copy de solo lectura sin jerga de implementación. Al asociar detalle
+  desde OC interna, la API devuelve `valor` con incremento interno y
+  `valorAsignadoOc` con el valor real asignado, preservando reversas de OC por el
+  valor real.
+  - `apps/api/src/budgets/internal-production/internal-production-budgets.service.ts`
+  - `apps/api/src/budgets/internal-production/internal-production-budgets.repository.ts`
+  - `apps/web/src/pages/ExternalProductionBudgets.tsx`
+  - `apps/web/src/pages/ExternalProductionBudgetForm.tsx`
+  - `apps/web/src/pages/ExternalProductionBudgetSupport.tsx`
+- 2026-09-25: Se agregó comando manual para aplicar en VM los seeds de menús y
+  acciones de presupuestos sin acoplarlo al deploy: `npm run
+  db:apply-media-budget-seeds`. Lee `.env` (`DB_HOST`, `DB_PORT`, `DB_NAME`,
+  `DB_USER`, `DB_PASSWORD`), muestra destino/archivos, rechaza ejecución si faltan
+  `DB_NAME` o `DB_USER`, ejecuta solo `012`, `013` y `014` en ese orden y reporta
+  conteos de `app_menus`/`app_actions`. Para validar sin mutar DB: `node
+  scripts/apply-media-budget-seeds.js --dry-run`.
+  - `scripts/apply-media-budget-seeds.js`
+  - `package.json`
+- 2026-10-06: Producción Interna ahora también expone la acción de fila `Add Orden`
+  en el listado cuando el rol tiene `internal-production-budgets.add-order` y el
+  presupuesto está activo o impreso. El flujo reutiliza el modal compartido del
+  listado, llama `POST /budgets/internal-production/:id/order`, valida el permiso
+  en backend y actualiza `presup_prodi.psin_numorden`. No toca el flujo de
+  asociación de detalles desde OC, que sigue siendo otro caso de uso. Para roles
+  no-root, ejecutar el seed `014` y otorgar el permiso desde Roles/Permisos.
+  - `apps/web/src/pages/ExternalProductionBudgets.tsx`
+  - `apps/web/src/services/api.ts`
+  - `apps/api/src/budgets/internal-production/internal-production-budgets.controller.ts`
+  - `apps/api/src/budgets/internal-production/internal-production-budgets.service.ts`
+  - `apps/api/src/budgets/internal-production/internal-production-budgets.repository.ts`
+  - `apps/api/src/permissions/permissions.service.ts`
+  - `database/sql/014_seed_internal_production_budget_actions.sql`
+- 2026-10-06: Los formularios migrados de Producción Externa e Interna ahora
+  recuperan el campo legacy `Contrato De Consumo`. En legacy era un select
+  obligatorio con opción `0 = No Aplica`, filtrado por cliente desde
+  `sys_contratos` (`contra_parte = cliente`, `parte = 'CLIENTE'`, `old = 0`,
+  `id_estado = 1`) y persistido en `presup_prode.contrato` /
+  `presup_prodi.contrato`. No se muestra en listados ni print legacy, por eso la
+  migración solo lo agrega al formulario y a los catálogos API.
+  - `apps/web/src/pages/ExternalProductionBudgetForm.tsx`
+  - `apps/api/src/budgets/external-production/external-production-budgets.service.ts`
+  - `apps/api/src/budgets/external-production/external-production-budgets.repository.ts`
+  - `apps/api/src/budgets/internal-production/internal-production-budgets.service.ts`
+  - `apps/api/src/budgets/internal-production/internal-production-budgets.repository.ts`
+- 2026-10-06: En Producción Interna, `Departamento` y `Municipio` quedan
+  opcionales para respetar legacy. En las vistas legacy internas esos campos solo
+  se renderizan para roles TeamBTL o root; al guardar con `FormData`, si no se
+  renderizan no viajan en el payload. La migración mantiene los selects visibles,
+  pero ya no bloquea guardar si están vacíos y la API persiste `NULL` en
+  `presup_prodi.cod_dpto` / `presup_prodi.id_ciudad` cuando se omiten. Producción
+  Externa no se relajó por este cambio.
+  - `apps/web/src/pages/ExternalProductionBudgetForm.tsx`
+  - `apps/api/src/budgets/internal-production/internal-production-budgets.service.ts`
+  - `apps/api/src/budgets/internal-production/internal-production-budgets.repository.ts`
 
 ## Auditoría previa al commit
 
@@ -193,18 +346,6 @@ Antes de cerrar o cambiar de máquina:
 3. `git add` + `git commit` + `git push`.
 4. Dejar una nota breve en este archivo si queda trabajo incompleto.
 
-## Próximo arranque en Windows
-
-Después de clonar:
-
-```bash
-git clone git@github-joseuno23:Joseuno23/Sonoffice.git
-cd Sonoffice
-git checkout main
-git pull --rebase
-```
-
-Luego configurar `.env` local y dependencias según `README.md`.
 
 Primer prompt recomendado al agente de Windows:
 

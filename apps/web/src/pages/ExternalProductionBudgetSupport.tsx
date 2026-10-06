@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import AlertMessage from '../components/AlertMessage';
-import ConfirmDialog from '../components/ConfirmDialog';
 import PageHeader from '../components/PageHeader';
 import { Icon } from '../lib/icons';
 import { api } from '../services/api';
@@ -17,13 +16,24 @@ const btnGhost: CSSProperties = { height: 38, padding: '0 14px', border: '1px so
 export default function ExternalProductionBudgetSupport() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isInternal = location.pathname.includes('/produccion-interna/');
+  const basePath = isInternal ? '/medios/presupuestos/produccion-interna' : '/medios/presupuestos/produccion-externa';
+  const supportApi = isInternal ? {
+    get: api.getInternalProductionBudgetSupport,
+    upload: api.uploadInternalProductionBudgetSupport,
+    download: api.downloadInternalProductionBudgetSupport,
+  } : {
+    get: api.getExternalProductionBudgetSupport,
+    upload: api.uploadExternalProductionBudgetSupport,
+    download: api.downloadExternalProductionBudgetSupport,
+  };
   const inputRef = useRef<HTMLInputElement>(null);
   const [data, setData] = useState<SupportData>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<Message>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Attachment | null>(null);
 
   const rows = useMemo(() => data.attachments || [], [data.attachments]);
   const canUpload = data.budget?.canUpload !== false;
@@ -31,7 +41,7 @@ export default function ExternalProductionBudgetSupport() {
   const load = () => {
     if (!id) return;
     setLoading(true);
-    api.getExternalProductionBudgetSupport(id)
+    supportApi.get(id)
       .then((res) => {
         if (res?.success) setData(res.data || {});
         else setMessage({ type: 'error', text: res?.message || 'No se pudo cargar el soporte.' });
@@ -40,7 +50,7 @@ export default function ExternalProductionBudgetSupport() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [id]);
+  useEffect(load, [id, isInternal]);
 
   const selectFile = (selected?: File) => {
     setMessage(null);
@@ -52,7 +62,7 @@ export default function ExternalProductionBudgetSupport() {
   const upload = () => {
     if (!id || !file || !canUpload) return;
     setSaving(true);
-    api.uploadExternalProductionBudgetSupport(id, file)
+    supportApi.upload(id, file)
       .then((res) => {
         if (!res?.success) { setMessage({ type: 'error', text: res?.message || 'No se pudo cargar el soporte.' }); return; }
         setMessage({ type: 'success', text: res.message || 'Soporte cargado correctamente.' });
@@ -64,22 +74,10 @@ export default function ExternalProductionBudgetSupport() {
       .finally(() => setSaving(false));
   };
 
-  const remove = () => {
-    if (!id || !deleteTarget?.nombre) return;
-    setSaving(true);
-    api.deleteExternalProductionBudgetSupport(id, deleteTarget.nombre)
-      .then((res) => {
-        if (res?.success) { setMessage({ type: 'success', text: res.message || 'Soporte eliminado correctamente.' }); setDeleteTarget(null); load(); }
-        else setMessage({ type: 'error', text: res?.message || 'No se pudo eliminar el soporte.' });
-      })
-      .catch(() => setMessage({ type: 'error', text: 'No se pudo eliminar el soporte.' }))
-      .finally(() => setSaving(false));
-  };
-
   const download = async (row: Attachment) => {
     if (!id || !row.nombre) return;
     try {
-      const { blob, filename } = await api.downloadExternalProductionBudgetSupport(id, row.nombre);
+      const { blob, filename } = await supportApi.download(id, row.nombre);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -95,7 +93,7 @@ export default function ExternalProductionBudgetSupport() {
 
   return (
     <>
-      <PageHeader crumb="Medios · Presupuestos" title={`Soporte de Pauta #${id || ''}`} sub="Carga y descarga de adjuntos de soporte para presupuesto de Producción Externa." primary={{ label: 'Volver', onClick: () => navigate('/medios/presupuestos/produccion-externa/listar') }} />
+      <PageHeader crumb="Medios · Presupuestos" title={`Soporte de Pauta #${id || ''}`} sub={`Carga y descarga de adjuntos de soporte para presupuesto de Producción ${isInternal ? 'Interna' : 'Externa'}.`} primary={{ label: 'Volver', onClick: () => navigate(`${basePath}/listar`) }} />
       {message && <AlertMessage type={message.type} style={{ marginBottom: 14 }}>{message.text}</AlertMessage>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, .85fr) minmax(360px, 1.15fr)', gap: 18, alignItems: 'start' }}>
@@ -105,7 +103,7 @@ export default function ExternalProductionBudgetSupport() {
             <div style={{ marginTop: 5, fontSize: 13, color: 'var(--muted,#64748b)' }}>Máximo 10 MB.</div>
           </div>
           <div style={{ padding: 18 }}>
-            {!canUpload && <AlertMessage type="error" style={{ marginBottom: 14 }}>El presupuesto está anulado; en el flujo legacy el soporte no se ofrece para anulados.</AlertMessage>}
+            {!canUpload && <AlertMessage type="error" style={{ marginBottom: 14 }}>El presupuesto está anulado; no se pueden cargar soportes.</AlertMessage>}
             <input ref={inputRef} type="file" disabled={!canUpload || saving} onChange={(event) => selectFile(event.target.files?.[0])} style={{ width: '100%', border: '1px dashed var(--border-strong,#d5d9e0)', borderRadius: 12, padding: 14, color: 'var(--fg-2,#334155)', background: 'var(--surface-2,#f7f8fa)' }} />
             {file && <div style={{ marginTop: 12, fontSize: 13, color: 'var(--muted,#64748b)' }}><strong style={{ color: 'var(--fg,#0f172a)' }}>{file.name}</strong> · {(file.size / 1024 / 1024).toFixed(2)} MB</div>}
             <button type="button" onClick={upload} disabled={!file || saving || !canUpload} style={{ ...btnPrimary, marginTop: 16, opacity: !file || saving || !canUpload ? .6 : 1, cursor: !file || saving || !canUpload ? 'default' : 'pointer' }}><Icon d="M12 3v12M7 8l5-5 5 5M5 21h14" size={16} sw={2} />{saving ? 'Cargando…' : 'Cargar'}</button>
@@ -119,13 +117,11 @@ export default function ExternalProductionBudgetSupport() {
           {rows.length ? rows.map((row, index) => {
             return <div key={`${row.nombre || 'adjunto'}-${row.fecha || index}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 18px', borderBottom: '1px solid var(--border,#e5e8ec)' }}>
               <div style={{ minWidth: 0 }}><div style={{ color: 'var(--fg,#0f172a)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.nombre || 'Adjunto'}</div><div style={{ marginTop: 4, color: 'var(--muted,#64748b)', fontSize: 12.5 }}>{row.fecha || ''}</div></div>
-              <div style={{ display: 'flex', gap: 8, flex: 'none' }}><button type="button" onClick={() => void download(row)} style={btnGhost}><Icon d="M12 3v12M7 10l5 5 5-5M5 21h14" size={15} sw={2} />Descargar</button><button type="button" onClick={() => setDeleteTarget(row)} style={{ ...btnGhost, color: '#dc2626' }}><Icon d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15" size={15} sw={2} />Eliminar</button></div>
+              <div style={{ display: 'flex', gap: 8, flex: 'none' }}><button type="button" onClick={() => void download(row)} style={btnGhost}><Icon d="M12 3v12M7 10l5 5 5-5M5 21h14" size={15} sw={2} />Descargar</button></div>
             </div>;
           }) : !loading && <div style={{ padding: 42, textAlign: 'center', color: 'var(--muted,#64748b)' }}>No hay soportes cargados para este presupuesto.</div>}
         </section>
       </div>
-
-      <ConfirmDialog open={!!deleteTarget} title="Eliminar soporte" description={`Se eliminará ${deleteTarget?.nombre || 'el adjunto'} del soporte de pauta.`} confirmLabel="Eliminar" tone="danger" loading={saving} onConfirm={remove} onCancel={() => setDeleteTarget(null)} />
     </>
   );
 }

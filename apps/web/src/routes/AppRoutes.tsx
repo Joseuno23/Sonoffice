@@ -26,21 +26,23 @@ import RolePermissions from '../pages/RolePermissions';
 import BudgetPlaceholder from '../pages/BudgetPlaceholder';
 import ExternalProductionBudgets from '../pages/ExternalProductionBudgets';
 import ExternalProductionBudgetForm from '../pages/ExternalProductionBudgetForm';
-import ExternalProductionBudgetOrders from '../pages/ExternalProductionBudgetOrders';
 import ExternalProductionBudgetPrint from '../pages/ExternalProductionBudgetPrint';
 import ExternalProductionBudgetSupport from '../pages/ExternalProductionBudgetSupport';
+import InternalProductionBudgets from '../pages/InternalProductionBudgets';
+import InternalProductionBudgetForm from '../pages/InternalProductionBudgetForm';
+import InternalProductionBudgetPrint from '../pages/InternalProductionBudgetPrint';
+import InternalProductionBudgetSupport from '../pages/InternalProductionBudgetSupport';
 
 const budgetTypes = [
-  { slug: 'prensa-aviso', label: 'Prensa / Aviso', hasOrders: true },
-  { slug: 'clasificado', label: 'Clasificado', hasOrders: true },
-  { slug: 'revista', label: 'Revista', hasOrders: true },
-  { slug: 'radio', label: 'Radio', hasOrders: true },
-  { slug: 'television', label: 'Televisión', hasOrders: true },
-  { slug: 'produccion-externa', label: 'Producción Externa', hasOrders: true },
-  { slug: 'produccion-interna', label: 'Producción Interna', hasOrders: false },
-  { slug: 'publicidad-exterior', label: 'Publicidad Exterior', hasOrders: true },
-  { slug: 'impreso', label: 'Impreso', hasOrders: true },
-  { slug: 'articulos-publicitarios', label: 'Artículos Publicitarios', hasOrders: true },
+  { slug: 'prensa-aviso', label: 'Prensa / Aviso' },
+  { slug: 'clasificado', label: 'Clasificado' },
+  { slug: 'revista', label: 'Revista' },
+  { slug: 'radio', label: 'Radio' },
+  { slug: 'television', label: 'Televisión' },
+  { slug: 'produccion-externa', label: 'Producción Externa' },
+  { slug: 'publicidad-exterior', label: 'Publicidad Exterior' },
+  { slug: 'impreso', label: 'Impreso' },
+  { slug: 'articulos-publicitarios', label: 'Artículos Publicitarios' },
 ];
 
 function RequireAuth({ children }) {
@@ -66,6 +68,14 @@ export default function AppRoutes() {
         element={
           <RequireAuth>
             <ExternalProductionBudgetPrint />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/medios/presupuestos/produccion-interna/:id/imprimir"
+        element={
+          <RequireAuth>
+            <InternalProductionBudgetPrint />
           </RequireAuth>
         }
       />
@@ -108,12 +118,12 @@ export default function AppRoutes() {
         <Route path="/medios/presupuestos/produccion-externa/nuevo" element={<ExternalProductionBudgetForm />} />
         <Route path="/medios/presupuestos/produccion-externa/:id/editar" element={<ExternalProductionBudgetForm />} />
         <Route path="/medios/presupuestos/produccion-externa/:id/soporte-pauta" element={<ExternalProductionBudgetSupport />} />
-        <Route path="/medios/presupuestos/produccion-externa/ordenes" element={<ExternalProductionBudgetOrders />} />
+        <Route path="/medios/presupuestos/produccion-interna/listar" element={<InternalProductionBudgets />} />
+        <Route path="/medios/presupuestos/produccion-interna/nuevo" element={<InternalProductionBudgetForm />} />
+        <Route path="/medios/presupuestos/produccion-interna/:id/editar" element={<InternalProductionBudgetForm />} />
+        <Route path="/medios/presupuestos/produccion-interna/:id/soporte-pauta" element={<InternalProductionBudgetSupport />} />
         {budgetTypes.map((budgetType) => (
-          <Route key={`${budgetType.slug}-listar`} path={`/medios/presupuestos/${budgetType.slug}/listar`} element={<BudgetPlaceholder typeLabel={budgetType.label} section="listar" />} />
-        ))}
-        {budgetTypes.filter((budgetType) => budgetType.hasOrders).map((budgetType) => (
-          <Route key={`${budgetType.slug}-ordenes`} path={`/medios/presupuestos/${budgetType.slug}/ordenes`} element={<BudgetPlaceholder typeLabel={budgetType.label} section="ordenes" />} />
+          <Route key={`${budgetType.slug}-listar`} path={`/medios/presupuestos/${budgetType.slug}/listar`} element={<BudgetPlaceholder typeLabel={budgetType.label} />} />
         ))}
         <Route path="/reportes/ordenes-costo" element={<Navigate to="/reportes/ordenes-costo/general" replace />} />
         <Route path="/reportes/ordenes-costo/general" element={<CostOrdersReport />} />

@@ -1,11 +1,8 @@
 import PageHeader from '../components/PageHeader';
 import { Icon } from '../lib/icons';
 
-type BudgetSection = 'listar' | 'ordenes';
-
 type BudgetPlaceholderProps = {
   typeLabel: string;
-  section: BudgetSection;
 };
 
 const card = {
@@ -17,11 +14,8 @@ const card = {
   textAlign: 'center' as const,
 };
 
-export default function BudgetPlaceholder({ typeLabel, section }: BudgetPlaceholderProps) {
-  const title = section === 'listar' ? `Presupuestos de ${typeLabel}` : `Órdenes de ${typeLabel}`;
-  const description = section === 'listar'
-    ? 'La navegación del módulo ya está disponible. La consulta y gestión se implementarán en el siguiente slice seguro.'
-    : 'La navegación hacia órdenes asociadas ya está disponible. La operación se implementará cuando migre la lógica correspondiente.';
+export default function BudgetPlaceholder({ typeLabel }: BudgetPlaceholderProps) {
+  const title = `Presupuestos de ${typeLabel}`;
 
   return (
     <>
@@ -35,7 +29,7 @@ export default function BudgetPlaceholder({ typeLabel, section }: BudgetPlacehol
           <Icon d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5" size={32} sw={1.7} />
         </div>
         <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--fg,#0f172a)', marginBottom: 8 }}>{title}</div>
-        <div style={{ fontSize: 14, color: 'var(--muted,#64748b)', maxWidth: 480, margin: '0 auto', lineHeight: 1.6 }}>{description}</div>
+        <div style={{ fontSize: 14, color: 'var(--muted,#64748b)', maxWidth: 480, margin: '0 auto', lineHeight: 1.6 }}>La navegación del módulo ya está disponible. La consulta y gestión se implementarán en el siguiente slice seguro.</div>
       </div>
     </>
   );

@@ -3,6 +3,8 @@ import { ResultSetHeader } from 'mysql2';
 import { DbService } from '../db/db.service';
 import { MenuExistsRow, MenuRow, SystemMenuRow } from './menus.types';
 
+const OBSOLETE_BUDGET_ORDERS_MENU_CODE = 'media.budgets.%.orders';
+
 @Injectable()
 export class MenusRepository {
   constructor(private readonly db: DbService) {}
@@ -22,12 +24,13 @@ export class MenusRepository {
       WHERE p.role_id = ?
         AND p.can_view = 1
         AND m.is_active = 1
+        AND m.code NOT LIKE ?
       ORDER BY
         COALESCE(m.parent_id, 0),
         m.sort_order,
         m.label,
         m.id`,
-      [roleId],
+      [roleId, OBSOLETE_BUDGET_ORDERS_MENU_CODE],
     );
   }
 
@@ -43,11 +46,13 @@ export class MenusRepository {
         m.sort_order
       FROM app_menus m
       WHERE m.is_active = 1
+        AND m.code NOT LIKE ?
       ORDER BY
         COALESCE(m.parent_id, 0),
         m.sort_order,
         m.label,
         m.id`,
+      [OBSOLETE_BUDGET_ORDERS_MENU_CODE],
     );
   }
 
@@ -65,11 +70,13 @@ export class MenusRepository {
         m.is_active AS isActive
       FROM app_menus m
       LEFT JOIN app_menus p ON p.id = m.parent_id
+      WHERE m.code NOT LIKE ?
       ORDER BY
         COALESCE(m.parent_id, 0),
         m.sort_order,
         m.label,
         m.id`,
+      [OBSOLETE_BUDGET_ORDERS_MENU_CODE],
     );
   }
 
@@ -88,8 +95,9 @@ export class MenusRepository {
       FROM app_menus m
       LEFT JOIN app_menus p ON p.id = m.parent_id
       WHERE m.id = ?
+        AND m.code NOT LIKE ?
       LIMIT 1`,
-      [id],
+      [id, OBSOLETE_BUDGET_ORDERS_MENU_CODE],
     );
 
     return rows[0] ?? null;

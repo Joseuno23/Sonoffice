@@ -4,6 +4,10 @@ export interface ActionCodeRow extends RowDataPacket {
   action_code: string;
 }
 
+export interface MenuAccessRow extends RowDataPacket {
+  id: number;
+}
+
 export interface ActionRow extends RowDataPacket {
   id: number;
   moduleCode: string;

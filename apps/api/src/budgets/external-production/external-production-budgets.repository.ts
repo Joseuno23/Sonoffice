@@ -4,7 +4,7 @@ import { PoolConnection, RowDataPacket } from 'mysql2/promise';
 import { ResultSetHeader } from 'mysql2';
 import externalProductionBudgetConfig from '../../config/external-production-budget.config';
 import { DbService } from '../../db/db.service';
-import { BillingPrintRow, BudgetHeaderRow, BudgetRow, CostOrderDetailRow, CountRow, DetailRow, IncentiveRow, LegacyButtonPermissionRow, OptionRow, OrderRow, SupportAttachmentRow, SupportBudgetRow } from './external-production-budgets.types';
+import { BillingPrintRow, BudgetHeaderRow, BudgetRow, CostOrderDetailRow, CountRow, DetailRow, IncentiveRow, OptionRow, OrderHistoryRow, OrderRow, SupportAttachmentRow, SupportBudgetRow } from './external-production-budgets.types';
 
 @Injectable()
 export class ExternalProductionBudgetsRepository {
@@ -85,7 +85,7 @@ export class ExternalProductionBudgetsRepository {
     return rows.filter((row) => !excluded.has(this.normalizeLabel(row.label)));
   }
 
-  async options(table: 'clients' | 'providers' | 'services' | 'campaigns' | 'products', searchOrClient?: string | number): Promise<OptionRow[]> {
+  async options(table: 'clients' | 'providers' | 'services' | 'campaigns' | 'products' | 'contracts', searchOrClient?: string | number): Promise<OptionRow[]> {
     if (table === 'clients' || table === 'providers') {
       const flag = table === 'clients' ? 'cliente' : 'proveedor';
       const search = typeof searchOrClient === 'string' && searchOrClient.trim() ? `%${searchOrClient.trim()}%` : null;
@@ -93,26 +93,30 @@ export class ExternalProductionBudgetsRepository {
     }
     if (table === 'services') return this.db.execute<OptionRow[]>(`SELECT id_tipo_servicio AS id, nombre AS label FROM sys_tipo_servicio WHERE tipo = ? AND (id_estado = ? OR id_estado IS NULL) ORDER BY nombre`, [this.config.externalServiceType, this.active]);
     if (table === 'campaigns') return this.db.execute<OptionRow[]>(`SELECT camp_id AS id, camp_nombre AS label FROM cat_campanas WHERE pvcl_id = ? AND est_id = ? ORDER BY camp_nombre`, [Number(searchOrClient), this.active]);
+    if (table === 'contracts') {
+      return this.db.execute<OptionRow[]>(`SELECT c.id, COALESCE(NULLIF(CONCAT_WS(' | ', NULLIF(c.numero, ''), CASE WHEN c.valor IS NOT NULL THEN CONCAT('Valor ', c.valor) END, CASE WHEN c.fecha_inicio IS NOT NULL OR c.fecha_vencimiento IS NOT NULL THEN CONCAT('Vigencia ', COALESCE(DATE_FORMAT(c.fecha_inicio, '%Y-%m-%d'), ''), CASE WHEN c.fecha_inicio IS NOT NULL AND c.fecha_vencimiento IS NOT NULL THEN ' a ' ELSE '' END, COALESCE(DATE_FORMAT(c.fecha_vencimiento, '%Y-%m-%d'), '')) END), ''), CONCAT('Contrato ', c.id)) AS label FROM sys_contratos c WHERE c.contra_parte = ? AND c.parte = 'CLIENTE' AND c.old = 0 AND c.id_estado = ? ORDER BY c.numero, c.id`, [Number(searchOrClient), this.active]);
+    }
     return this.db.execute<OptionRow[]>(`SELECT pdcl_id AS id, pdcl_nombre AS label FROM cat_prodsclies WHERE pvcl_id = ? AND est_id = ? ORDER BY pdcl_nombre`, [Number(searchOrClient), this.active]);
   }
 
   async get(id: number): Promise<{ header: BudgetHeaderRow | null; details: DetailRow[]; orders: OrderRow[] }> {
     const headers = await this.db.execute<BudgetHeaderRow[]>(this.headerSql('p.psex_id = ?'), [this.tpoDoc, id]);
-    const details = await this.db.execute<DetailRow[]>(`SELECT d.dprode_id AS id, d.unidad, d.tpsv_id AS idServicio, s.nombre AS servicio, d.dprode_detalle AS detalle, d.dprode_valor AS valor, d.dprode_iva AS iva, d.incentivo, mi.area AS incentivoArea, mi.medio AS incentivoMedio, d.valor_asignado_oc AS valorAsignadoOc, d.ordcos_id AS ordenCosto, si.costo AS snapshotCosto, si.utilidad_sono AS snapshotUtilidadSono, si.utilidad_proveedor AS snapshotUtilidadProveedor, si.detalle AS snapshotDetalle, si.nota AS snapshotNota FROM det_prode d LEFT JOIN sys_tipo_servicio s ON d.tpsv_id = s.id_tipo_servicio LEFT JOIN sys_micro_servicio_incentivos mi ON d.incentivo = mi.id LEFT JOIN sys_detalle_micro_servicio_incentivos si ON si.ppto = d.psex_id AND si.det_ppto = d.dprode_id AND si.tipo_ppto = ? WHERE d.psex_id = ? ORDER BY d.dprode_id`, [this.type, id]);
+    const details = await this.db.execute<DetailRow[]>(`SELECT d.dprode_id AS id, d.cantidad, d.unidad, d.tpsv_id AS idServicio, s.nombre AS servicio, d.dprode_detalle AS detalle, d.dprode_valor AS valor, d.dprode_iva AS iva, d.incentivo, mi.area AS incentivoArea, mi.medio AS incentivoMedio, d.valor_asignado_oc AS valorAsignadoOc, d.ordcos_id AS ordenCosto, si.costo AS snapshotCosto, si.utilidad_sono AS snapshotUtilidadSono, si.utilidad_proveedor AS snapshotUtilidadProveedor, si.detalle AS snapshotDetalle, si.nota AS snapshotNota FROM det_prode d LEFT JOIN sys_tipo_servicio s ON d.tpsv_id = s.id_tipo_servicio LEFT JOIN sys_micro_servicio_incentivos mi ON d.incentivo = mi.id LEFT JOIN sys_detalle_micro_servicio_incentivos si ON si.ppto = d.psex_id AND si.det_ppto = d.dprode_id AND si.tipo_ppto = ? WHERE d.psex_id = ? ORDER BY d.dprode_id`, [this.type, id]);
     const orders = await this.orders(id);
     return { header: headers[0] ?? null, details, orders };
   }
 
   private headerSql(where: string) {
-    return `SELECT p.psex_id AS id, p.psex_fecha AS fecha, p.psex_estado AS idEstado, e.est_nombre AS estado, e.est_color AS estadoColor, p.pvcl_id_clie AS idCliente, c.nombre AS cliente, c.documento AS clienteDocumento, c.direccion AS clienteDireccion, c.telefono AS clienteTelefono, c.ciudad AS clienteCiudad, p.pvcl_id_prov AS idProveedor, pr.nombre AS proveedor, pr.documento AS proveedorDocumento, pr.direccion AS proveedorDireccion, pr.telefono AS proveedorTelefono, pr.ciudad AS proveedorCiudad, p.camp_id AS idCampana, ca.camp_nombre AS campana, p.pdcl_id AS idProducto, pd.pdcl_nombre AS producto, p.tpsv_id AS idServicio, s.nombre AS servicio, p.contrato, p.psex_numorden AS ordenCliente, p.psex_formapago AS formaPago, p.psex_numcotizacion AS cotizacion, p.psex_observacion AS observacion, p.psex_desc AS descuento, p.psex_iva AS iva, p.psex_spa AS spa, p.psex_ivaspa AS ivaSpa, p.psex_valor AS valor, p.psex_total AS total, p.incentivo_x_servicio AS incentivoXServicio, p.num_impresiones AS numImpresiones, p.fecha_anulacion AS fechaAnulacion, p.consecutivo_anulacion AS consecutivoAnulacion, o.ord_id AS ordenId, o.ord_observacion AS ordenObservacion, CONCAT(u.usr_nombre, ' ', u.usr_apellido) AS usuario FROM presup_prode p LEFT JOIN cat_estados e ON p.psex_estado = e.est_id LEFT JOIN sys_clients c ON p.pvcl_id_clie = c.id_client LEFT JOIN sys_clients pr ON p.pvcl_id_prov = pr.id_client LEFT JOIN cat_campanas ca ON p.camp_id = ca.camp_id LEFT JOIN cat_prodsclies pd ON p.pdcl_id = pd.pdcl_id LEFT JOIN sys_tipo_servicio s ON p.tpsv_id = s.id_tipo_servicio LEFT JOIN ordenes o ON o.doc_id = p.psex_id AND o.tpo_doc = ? LEFT JOIN usuarios u ON p.usr_id_crea = u.usr_id WHERE ${where} LIMIT 1`;
+    return `SELECT p.psex_id AS id, p.psex_fecha AS fecha, p.psex_estado AS idEstado, e.est_nombre AS estado, e.est_color AS estadoColor, p.pvcl_id_clie AS idCliente, c.nombre AS cliente, c.documento AS clienteDocumento, c.direccion AS clienteDireccion, c.telefono AS clienteTelefono, c.ciudad AS clienteCiudad, p.pvcl_id_prov AS idProveedor, pr.nombre AS proveedor, pr.documento AS proveedorDocumento, pr.direccion AS proveedorDireccion, pr.telefono AS proveedorTelefono, pr.ciudad AS proveedorCiudad, p.camp_id AS idCampana, ca.camp_nombre AS campana, p.pdcl_id AS idProducto, pd.pdcl_nombre AS producto, p.tpsv_id AS idServicio, s.nombre AS servicio, p.contrato, p.psex_numorden AS ordenCliente, p.psex_formapago AS formaPago, p.psex_numcotizacion AS cotizacion, p.psex_observacion AS observacion, p.psex_desc AS descuento, p.psex_iva AS iva, p.psex_spa AS spa, p.psex_ivaspa AS ivaSpa, p.psex_valor AS valor, p.psex_total AS total, p.incentivo_x_servicio AS incentivoXServicio, p.num_impresiones AS numImpresiones, p.fecha_anulacion AS fechaAnulacion, p.consecutivo_anulacion AS consecutivoAnulacion, o.ord_id AS ordenId, o.ord_observacion AS ordenObservacion, o.num_impresiones AS ordenNumImpresiones, CONCAT(u.usr_nombre, ' ', u.usr_apellido) AS usuario FROM presup_prode p LEFT JOIN cat_estados e ON p.psex_estado = e.est_id LEFT JOIN sys_clients c ON p.pvcl_id_clie = c.id_client LEFT JOIN sys_clients pr ON p.pvcl_id_prov = pr.id_client LEFT JOIN cat_campanas ca ON p.camp_id = ca.camp_id LEFT JOIN cat_prodsclies pd ON p.pdcl_id = pd.pdcl_id LEFT JOIN sys_tipo_servicio s ON p.tpsv_id = s.id_tipo_servicio LEFT JOIN ordenes o ON o.doc_id = p.psex_id AND o.tpo_doc = ? LEFT JOIN usuarios u ON p.usr_id_crea = u.usr_id WHERE ${where} LIMIT 1`;
   }
 
-  async printData(id: number): Promise<{ header: BudgetHeaderRow | null; details: DetailRow[]; billing: BillingPrintRow | null; bill: { consecutivo: string | number | null } | null }> {
+  async printData(id: number): Promise<{ header: BudgetHeaderRow | null; details: DetailRow[]; billing: BillingPrintRow | null; bill: { consecutivo: string | number | null } | null; history: OrderHistoryRow[] }> {
     const header = (await this.db.execute<BudgetHeaderRow[]>(this.headerSql('p.psex_id = ?'), [this.tpoDoc, id]))[0] ?? null;
-    const details = await this.db.execute<DetailRow[]>(`SELECT d.dprode_id AS id, d.unidad, d.tpsv_id AS idServicio, s.nombre AS servicio, d.dprode_detalle AS detalle, d.dprode_valor AS valor, d.dprode_iva AS iva, d.incentivo, mi.area AS incentivoArea, mi.medio AS incentivoMedio, d.valor_asignado_oc AS valorAsignadoOc, d.ordcos_id AS ordenCosto, si.costo AS snapshotCosto, si.utilidad_sono AS snapshotUtilidadSono, si.utilidad_proveedor AS snapshotUtilidadProveedor, si.detalle AS snapshotDetalle, si.nota AS snapshotNota FROM det_prode d LEFT JOIN sys_tipo_servicio s ON d.tpsv_id = s.id_tipo_servicio LEFT JOIN sys_micro_servicio_incentivos mi ON d.incentivo = mi.id LEFT JOIN sys_detalle_micro_servicio_incentivos si ON si.ppto = d.psex_id AND si.det_ppto = d.dprode_id AND si.tipo_ppto = ? WHERE d.psex_id = ? ORDER BY d.dprode_id`, [this.type, id]);
+    const details = await this.db.execute<DetailRow[]>(`SELECT d.dprode_id AS id, d.cantidad, d.unidad, d.tpsv_id AS idServicio, s.nombre AS servicio, d.dprode_detalle AS detalle, d.dprode_valor AS valor, d.dprode_iva AS iva, d.incentivo, mi.area AS incentivoArea, mi.medio AS incentivoMedio, d.valor_asignado_oc AS valorAsignadoOc, d.ordcos_id AS ordenCosto, si.costo AS snapshotCosto, si.utilidad_sono AS snapshotUtilidadSono, si.utilidad_proveedor AS snapshotUtilidadProveedor, si.detalle AS snapshotDetalle, si.nota AS snapshotNota FROM det_prode d LEFT JOIN sys_tipo_servicio s ON d.tpsv_id = s.id_tipo_servicio LEFT JOIN sys_micro_servicio_incentivos mi ON d.incentivo = mi.id LEFT JOIN sys_detalle_micro_servicio_incentivos si ON si.ppto = d.psex_id AND si.det_ppto = d.dprode_id AND si.tipo_ppto = ? WHERE d.psex_id = ? ORDER BY d.dprode_id`, [this.type, id]);
     const billing = (await this.db.execute<BillingPrintRow[]>(`SELECT nit, razon_social_emisor AS razonSocial, nombre_comercial_emisor AS nombreComercial, direccion_emisor AS direccion, ciudad_emisor AS ciudad, departamento_emisor AS departamento, pais_emisor AS pais, telefono_emisor AS telefono, digito_verificacion_emisor AS dv FROM sys_data_billing LIMIT 1`))[0] ?? null;
     const bill = (await this.db.execute<(RowDataPacket & { consecutivo: string | number | null })[]>(`SELECT f.consecutivo FROM factura_presup fp INNER JOIN facturacion f ON f.factura_id = fp.factura_id WHERE fp.id_doc = ? AND fp.modulo_id = ? LIMIT 1`, [id, this.type]))[0] ?? null;
-    return { header, details, billing, bill };
+    const history = header?.ordenId ? await this.db.execute<OrderHistoryRow[]>(`SELECT texto FROM sys_historial_orden WHERE id_orden = ?`, [header.ordenId]) : [];
+    return { header, details, billing, bill, history };
   }
 
   async headerTaxValues(id: number): Promise<{ iva: number; spa: number; ivaSpa: number } | null> {
@@ -133,11 +137,6 @@ export class ExternalProductionBudgetsRepository {
     return this.db.execute<OrderRow[]>(`SELECT o.ord_id AS id, o.ord_fecha AS fecha, o.ord_fechaimp AS fechaImp, p.nombre AS proveedor, o.ord_observacion AS observacion, o.num_impresiones AS numImpresiones FROM ordenes o LEFT JOIN sys_clients p ON o.pvcl_id_prov = p.id_client WHERE o.tpo_doc = ? ${id ? 'AND o.doc_id = ?' : ''} ORDER BY o.ord_id DESC LIMIT ${id ? 50 : 200}`, params);
   }
 
-  async legacyButtonPermissions(roleId: number): Promise<Set<string>> {
-    const rows = await this.db.execute<LegacyButtonPermissionRow[]>(`SELECT b.name FROM sys_roles_button r INNER JOIN sys_button b ON b.id_button = r.id_button WHERE b.application = 'EXTERNA' AND r.id_rol = ?`, [roleId]);
-    return new Set(rows.map((row) => row.name));
-  }
-
   async supportAttachments(id: number): Promise<SupportAttachmentRow[]> {
     return this.db.execute<SupportAttachmentRow[]>(`SELECT ppto, modulo, nombre, fecha FROM sys_adjunto_ppto WHERE ppto = ? AND modulo = ? ORDER BY fecha DESC, nombre`, [id, this.type]);
   }
@@ -154,10 +153,6 @@ export class ExternalProductionBudgetsRepository {
 
   async addSupportAttachment(id: number, filename: string): Promise<void> {
     await this.db.execute<ResultSetHeader>(`INSERT INTO sys_adjunto_ppto (nombre, ppto, modulo, fecha) VALUES (?, ?, ?, CURDATE())`, [filename, id, this.type]);
-  }
-
-  async deleteSupportAttachment(id: number, filename: string): Promise<void> {
-    await this.db.execute<ResultSetHeader>(`DELETE FROM sys_adjunto_ppto WHERE ppto = ? AND modulo = ? AND nombre = ?`, [id, this.type, filename]);
   }
 
   async updateOrderNumber(id: number, order: string | null): Promise<'ok' | 'not-found' | 'invalid-state'> {
@@ -210,9 +205,9 @@ export class ExternalProductionBudgetsRepository {
       if (detailId) {
         const [details] = await connection.execute<DetailRow[]>(`SELECT dprode_id AS id FROM det_prode WHERE psex_id = ? AND dprode_id = ? FOR UPDATE`, [budgetId, detailId]);
         if (!details[0]) return 'not-found';
-        await connection.execute<ResultSetHeader>(`UPDATE det_prode SET unidad = ?, tpsv_id = ?, dprode_detalle = ?, dprode_valor = ?, dprode_iva = ?, incentivo = ? WHERE psex_id = ? AND dprode_id = ?`, [payload.unidad, payload.idServicio, payload.detalle, payload.valor, payload.iva, payload.incentivo || 0, budgetId, detailId]);
+        await connection.execute<ResultSetHeader>(`UPDATE det_prode SET cantidad = ?, unidad = ?, tpsv_id = ?, dprode_detalle = ?, dprode_valor = ?, dprode_iva = ?, incentivo = ? WHERE psex_id = ? AND dprode_id = ?`, [payload.cantidad, payload.unidad, payload.idServicio, payload.detalle, payload.valor, payload.iva, payload.incentivo || 0, budgetId, detailId]);
       } else {
-        const [result] = await connection.execute<ResultSetHeader>(`INSERT INTO det_prode (psex_id, unidad, tpsv_id, dprode_detalle, dprode_valor, dprode_iva, incentivo) VALUES (?, ?, ?, ?, ?, ?, ?)`, [budgetId, payload.unidad, payload.idServicio, payload.detalle, payload.valor, payload.iva, payload.incentivo || 0]);
+        const [result] = await connection.execute<ResultSetHeader>(`INSERT INTO det_prode (psex_id, cantidad, unidad, tpsv_id, dprode_detalle, dprode_valor, dprode_iva, incentivo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [budgetId, payload.cantidad, payload.unidad, payload.idServicio, payload.detalle, payload.valor, payload.iva, payload.incentivo || 0]);
         id = result.insertId;
       }
       await connection.execute<ResultSetHeader>(`DELETE FROM sys_detalle_micro_servicio_incentivos WHERE ppto = ? AND det_ppto = ? AND tipo_ppto = ?`, [budgetId, id, this.type]);
@@ -290,7 +285,7 @@ export class ExternalProductionBudgetsRepository {
       if (assigned <= 0 || Number(detail.disponible ?? 0) + 0.0001 < assigned) return 'unavailable';
       const [orderDetailUpdate] = await connection.execute<ResultSetHeader>(`UPDATE sys_detalle_costo SET total_cobrado = COALESCE(total_cobrado, 0) + ? WHERE id_orden = ? AND id_detalle = ? AND GREATEST(COALESCE(total, 0) - COALESCE(total_cobrado, 0), 0) >= ?`, [assigned, orderId, orderDetailId, assigned]);
       if (orderDetailUpdate.affectedRows !== 1) return 'unavailable';
-      const [insert] = await connection.execute<ResultSetHeader>(`INSERT INTO det_prode (psex_id, unidad, tpsv_id, dprode_detalle, dprode_valor, dprode_iva, incentivo, valor_asignado_oc, ordcos_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [budgetId, '1', budget.idServicio, detail.detalle || '', assigned, budget.iva ?? defaultIva, incentivePayload.incentivo || 0, assigned, orderId]);
+      const [insert] = await connection.execute<ResultSetHeader>(`INSERT INTO det_prode (psex_id, cantidad, unidad, tpsv_id, dprode_detalle, dprode_valor, dprode_iva, incentivo, valor_asignado_oc, ordcos_id) VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?)`, [budgetId, '1', budget.idServicio, detail.detalle || '', assigned, budget.iva ?? defaultIva, incentivePayload.incentivo || 0, assigned, orderId]);
       if (incentive) await this.saveIncentiveSnapshot(connection, budgetId, insert.insertId, budget.fecha, Number(budget.idServicio), assigned, incentive, incentivePayload.costoIncentivo);
       await connection.execute<ResultSetHeader>(`INSERT INTO sys_oc_ppto (id_orden, id_ppto, id_detalle_ppto, id_detalle_orden, modulo, cobrado_item) VALUES (?, ?, ?, ?, ?, ?)`, [orderId, budgetId, insert.insertId, orderDetailId, this.type, assigned]);
       await connection.execute<ResultSetHeader>(`UPDATE sys_orden_costos SET tipo_ppto = CASE WHEN tipo_ppto IS NULL THEN ? ELSE tipo_ppto END WHERE id_orden = ?`, [this.type, orderId]);
@@ -300,14 +295,25 @@ export class ExternalProductionBudgetsRepository {
     });
   }
 
-  async markPrinted(id: number): Promise<'ok' | 'already-printed' | 'not-found' | 'skipped-state'> {
+  async markPrinted(id: number, markOrder = false): Promise<'ok' | 'already-printed' | 'not-found' | 'skipped-state' | 'order-not-found'> {
     return this.db.transaction(async (connection) => {
       const [rows] = await connection.execute<(RowDataPacket & { state: number; prints: number | null })[]>(`SELECT p.psex_estado AS state, p.num_impresiones AS prints FROM presup_prode p WHERE p.psex_id = ? FOR UPDATE`, [id]);
       if (!rows[0]) return 'not-found';
-      if (Number(rows[0].state) === this.printed) return 'already-printed';
-      if (Number(rows[0].state) !== this.active) return 'skipped-state';
-      await connection.execute<ResultSetHeader>(`UPDATE presup_prode SET psex_estado = ?, num_impresiones = COALESCE(num_impresiones, -1) + 1 WHERE psex_id = ?`, [this.printed, id]);
-      return 'ok';
+      let orderId: number | null = null;
+      if (markOrder) {
+        const [orders] = await connection.execute<(RowDataPacket & { orderId: number; prints: number | null })[]>(`SELECT ord_id AS orderId, num_impresiones AS prints FROM ordenes WHERE doc_id = ? AND tpo_doc = ? FOR UPDATE`, [id, this.tpoDoc]);
+        if (!orders[0]) return 'order-not-found';
+        orderId = Number(orders[0].orderId);
+      }
+      let result: 'ok' | 'already-printed' | 'skipped-state' = 'skipped-state';
+      if (Number(rows[0].state) === this.printed) {
+        result = 'already-printed';
+      } else if (Number(rows[0].state) === this.active) {
+        await connection.execute<ResultSetHeader>(`UPDATE presup_prode SET psex_estado = ?, num_impresiones = COALESCE(num_impresiones, -1) + 1 WHERE psex_id = ?`, [this.printed, id]);
+        result = 'ok';
+      }
+      if (orderId !== null) await connection.execute<ResultSetHeader>(`UPDATE ordenes SET num_impresiones = COALESCE(num_impresiones, -1) + 1 WHERE ord_id = ?`, [orderId]);
+      return result;
     });
   }
 

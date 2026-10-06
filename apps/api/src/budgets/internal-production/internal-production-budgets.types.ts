@@ -14,7 +14,7 @@ export interface ListQuery {
   estado?: unknown;
 }
 
-export interface OptionRow extends RowDataPacket { id: number; label: string; }
+export interface OptionRow extends RowDataPacket { id: number | string; label: string; }
 export interface CountRow extends RowDataPacket { total: number; }
 
 export interface BudgetRow extends RowDataPacket {
@@ -51,6 +51,10 @@ export interface BudgetHeaderRow extends BudgetRow {
   idCampana: number | null;
   idProducto: number | null;
   idServicio: number | null;
+  idDepartamento: string | null;
+  departamento: string | null;
+  idCiudad: number | null;
+  ciudad: string | null;
   contrato: number | string | null;
   formaPago: string | null;
   observacion: string | null;
@@ -157,6 +161,8 @@ export interface BudgetPayload {
   idCampana?: unknown;
   idProducto?: unknown;
   idServicio?: unknown;
+  idDepartamento?: unknown;
+  idCiudad?: unknown;
   contrato?: unknown;
   ordenCliente?: unknown;
   formaPago?: unknown;
@@ -184,6 +190,8 @@ export interface CostOrderDetailPayload {
   orderId?: unknown;
   orderDetailId?: unknown;
   assigned?: unknown;
+  idServicio?: unknown;
+  unidad?: unknown;
   incentivo?: unknown;
   costoIncentivo?: unknown;
 }

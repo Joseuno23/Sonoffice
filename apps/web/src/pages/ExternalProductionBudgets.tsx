@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import AlertMessage from '../components/AlertMessage';
 import ConfirmDialog from '../components/ConfirmDialog';
 import PageHeader from '../components/PageHeader';
@@ -78,6 +78,24 @@ function StatusBadge({ estado }: { estado: string | null }) {
 
 export default function ExternalProductionBudgets() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isInternal = location.pathname.includes('/produccion-interna/');
+  const basePath = isInternal ? '/medios/presupuestos/produccion-interna' : '/medios/presupuestos/produccion-externa';
+  const budgetApi = isInternal ? {
+    statuses: api.getInternalProductionBudgetStatuses,
+    list: api.getInternalProductionBudgets,
+    anule: api.anuleInternalProductionBudget,
+    replace: api.replaceInternalProductionBudget,
+    duplicate: api.duplicateInternalProductionBudget,
+    addOrder: api.addInternalProductionBudgetOrder,
+  } : {
+    statuses: api.getExternalProductionBudgetStatuses,
+    list: api.getExternalProductionBudgets,
+    anule: api.anuleExternalProductionBudget,
+    replace: api.replaceExternalProductionBudget,
+    duplicate: api.duplicateExternalProductionBudget,
+    addOrder: api.addExternalProductionBudgetOrder,
+  };
   const [items, setItems] = useState<BudgetRow[]>([]);
   const [statuses, setStatuses] = useState<StatusOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,6 +105,7 @@ export default function ExternalProductionBudgets() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [moduleActions, setModuleActions] = useState<string[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [confirm, setConfirm] = useState<{ action: 'anule' | 'duplicate' | 'replace'; id: number } | null>(null);
@@ -104,28 +123,30 @@ export default function ExternalProductionBudgets() {
 
   useEffect(() => {
     let live = true;
-    api.getExternalProductionBudgetStatuses()
+    budgetApi.statuses()
       .then((res) => { if (live && res?.success) setStatuses((res.data || []).filter((row: StatusOption) => !hiddenFilterStatuses.has(normalizeStatus(row.label)))); })
       .catch(() => { if (live) setStatuses([]); });
     return () => { live = false; };
-  }, []);
+  }, [isInternal]);
 
   const reload = () => {
     setLoading(true);
     setMessage(null);
-    api.getExternalProductionBudgets({ page, pageSize: PER, search: debouncedQ || undefined, estado: estado === 'all' ? undefined : estado })
+    budgetApi.list({ page, pageSize: PER, search: debouncedQ || undefined, estado: estado === 'all' ? undefined : estado })
       .then((res) => {
         if (res?.success) {
           setItems(res.data.items || []);
           setTotal(res.data.total || 0);
           setTotalPages(res.data.totalPages || 1);
+          setModuleActions(res.data.moduleActions || []);
         } else {
           setItems([]);
           setTotal(0);
+          setModuleActions([]);
           setMessage({ type: 'error', text: res?.message || 'No se pudo cargar presupuestos.' });
         }
       })
-      .catch(() => { setItems([]); setTotal(0); setMessage({ type: 'error', text: 'No se pudo cargar presupuestos.' }); })
+      .catch(() => { setItems([]); setTotal(0); setModuleActions([]); setMessage({ type: 'error', text: 'No se pudo cargar presupuestos.' }); })
       .finally(() => setLoading(false));
   };
 
@@ -143,11 +164,11 @@ export default function ExternalProductionBudgets() {
   const runAction = () => {
     if (!confirm) return;
     const reason = anuleReason.trim();
-    const call = confirm.action === 'anule' ? api.anuleExternalProductionBudget(confirm.id, reason) : confirm.action === 'replace' ? api.replaceExternalProductionBudget(confirm.id) : api.duplicateExternalProductionBudget(confirm.id);
+    const call = confirm.action === 'anule' ? budgetApi.anule(confirm.id, reason) : confirm.action === 'replace' ? budgetApi.replace(confirm.id) : budgetApi.duplicate(confirm.id);
     call.then((res) => {
       if (res?.success) {
         if ((confirm.action === 'duplicate' || confirm.action === 'replace') && res.data?.id) {
-          navigate(`/medios/presupuestos/produccion-externa/${res.data.id}/editar`, { state: { message: res.message } });
+          navigate(`${basePath}/${res.data.id}/editar`, { state: { message: res.message } });
           return;
         }
         setMessage({ type: 'success', text: res.message });
@@ -161,10 +182,9 @@ export default function ExternalProductionBudgets() {
 
   const clearFilters = () => { setQ(''); setEstado('all'); setPage(1); };
 
-  const legacyFallbackActions = (row: BudgetRow): BudgetActionCode[] => ['print', ...(Number(row.idEstado) !== 9999 ? ['print-order', 'support'] as BudgetActionCode[] : []), 'edit', 'duplicate', ...(((Number(row.idEstado) === 1 && Number(row.numImpresiones ?? -1) === -1) || Number(row.idEstado) === 5) ? ['anule'] as BudgetActionCode[] : [])];
   const actionsFor = (row: BudgetRow) => {
-    const codes = new Set(row.actions?.length ? row.actions : legacyFallbackActions(row));
-    return ACTION_CATALOG.filter((action) => codes.has(action.code));
+    const codes = new Set(row.actions || []);
+    return ACTION_CATALOG.filter((action) => codes.has(action.code) && (!isInternal || action.code !== 'print-order'));
   };
 
   const handleAddOrder = (row: BudgetRow) => {
@@ -179,9 +199,9 @@ export default function ExternalProductionBudgets() {
   };
 
   const saveAddOrder = () => {
-    if (!addOrderTarget) return;
+    if (!addOrderTarget || !budgetApi.addOrder) return;
     setAddingOrder(true);
-    api.addExternalProductionBudgetOrder(addOrderTarget.id, addOrderValue.trim())
+    budgetApi.addOrder(addOrderTarget.id, addOrderValue.trim())
       .then((res) => {
         if (res?.success) { setMessage({ type: 'success', text: res.message || 'Orden agregada correctamente.' }); reload(); }
         else setMessage({ type: 'error', text: res?.message || 'No se pudo agregar la orden.' });
@@ -204,9 +224,9 @@ export default function ExternalProductionBudgets() {
     <>
       <PageHeader
         crumb="Medios · Presupuestos"
-        title="Presupuesto Producción Externa"
-        sub="Consulta y da seguimiento a los presupuestos de producción externa."
-        primary={{ label: 'Nuevo presupuesto', onClick: () => navigate('/medios/presupuestos/produccion-externa/nuevo') }}
+        title={isInternal ? 'Presupuesto Producción Interna' : 'Presupuesto Producción Externa'}
+        sub={`Consulta y da seguimiento a los presupuestos de producción ${isInternal ? 'interna' : 'externa'}.`}
+        primary={moduleActions.includes('create') ? { label: 'Nuevo presupuesto', onClick: () => navigate(`${basePath}/nuevo`) } : undefined}
       />
 
       {message && <AlertMessage type={message.type} style={{ marginBottom: 14 }}>{message.text}</AlertMessage>}
@@ -216,7 +236,7 @@ export default function ExternalProductionBudgets() {
           <input
             value={q}
             onChange={(event) => setQ(event.target.value)}
-            placeholder="Buscar por presupuesto, cliente, proveedor, campaña o usuario…"
+            placeholder={`Buscar por presupuesto, cliente, ${isInternal ? 'campaña' : 'proveedor, campaña'} o usuario…`}
             style={{ ...input, flex: 1, minWidth: 240, height: 38 }}
           />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -247,7 +267,7 @@ export default function ExternalProductionBudgets() {
                   {items.map((row) => (
                     <tr key={row.id} style={{ borderBottom: '1px solid var(--border,#e5e8ec)' }}>
                       <td style={{ padding: '13px 16px', fontFamily: 'JetBrains Mono,monospace', fontWeight: 700 }}>
-                        <button onClick={() => navigate(`/medios/presupuestos/produccion-externa/${row.id}/editar`)} style={{ padding: 0, border: 'none', background: 'transparent', color: 'var(--brand,#0891b2)', fontFamily: 'inherit', fontWeight: 800, fontSize: 13, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>#{row.id}</button>
+                        <button onClick={() => navigate(`${basePath}/${row.id}/editar`)} style={{ padding: 0, border: 'none', background: 'transparent', color: 'var(--brand,#0891b2)', fontFamily: 'inherit', fontWeight: 800, fontSize: 13, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>#{row.id}</button>
                         <div style={{ color: 'var(--muted,#64748b)', fontFamily: 'inherit', fontSize: 11, marginTop: 3 }}>{formatDate(row.fecha)}</div>
                       </td>
                       <td style={{ padding: '13px 16px', fontSize: 13, color: 'var(--fg-2,#334155)', maxWidth: 220 }}>{row.cliente || '—'}</td>
@@ -292,7 +312,7 @@ export default function ExternalProductionBudgets() {
           </>
         ) : (
           <div style={{ padding: '70px 20px', textAlign: 'center', color: 'var(--muted,#64748b)' }}>
-            {debouncedQ || estado !== 'all' ? 'No encontramos presupuestos que coincidan con los filtros aplicados.' : 'Todavía no hay presupuestos de producción externa.'}
+            {debouncedQ || estado !== 'all' ? 'No encontramos presupuestos que coincidan con los filtros aplicados.' : `Todavía no hay presupuestos de producción ${isInternal ? 'interna' : 'externa'}.`}
             {(debouncedQ || estado !== 'all') ? <div style={{ marginTop: 16 }}><button onClick={clearFilters} style={{ height: 38, padding: '0 18px', border: '1px solid var(--border-strong,#d5d9e0)', background: 'var(--surface,#fff)', color: 'var(--fg-2,#334155)', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Limpiar filtros</button></div> : null}
           </div>
         )}
@@ -308,11 +328,11 @@ export default function ExternalProductionBudgets() {
                 onClick={() => {
                   const budgetId = menu.row.id;
                   setMenu(null);
-                  if (action.code === 'edit') navigate(`/medios/presupuestos/produccion-externa/${budgetId}/editar`);
-                  if (action.code === 'view-anule') navigate(`/medios/presupuestos/produccion-externa/${budgetId}/editar`);
-                  if (action.code === 'print') window.open(`/medios/presupuestos/produccion-externa/${budgetId}/imprimir?autoprint=1`, '_blank', 'noopener,noreferrer');
-                  if (action.code === 'print-order') window.open(`/medios/presupuestos/produccion-externa/${budgetId}/imprimir?orden=1&autoprint=1`, '_blank', 'noopener,noreferrer');
-                  if (action.code === 'support') navigate(`/medios/presupuestos/produccion-externa/${budgetId}/soporte-pauta`);
+                  if (action.code === 'edit') navigate(`${basePath}/${budgetId}/editar`);
+                  if (action.code === 'view-anule') navigate(`${basePath}/${budgetId}/editar`);
+                  if (action.code === 'print') window.open(`${basePath}/${budgetId}/imprimir?autoprint=1`, '_blank', 'noopener,noreferrer');
+                  if (action.code === 'print-order') window.open(`${basePath}/${budgetId}/imprimir?orden=1&autoprint=1`, '_blank', 'noopener,noreferrer');
+                  if (action.code === 'support') navigate(`${basePath}/${budgetId}/soporte-pauta`);
                   if (action.code === 'add-order') handleAddOrder(menu.row);
                   if (action.code === 'anule' || action.code === 'duplicate' || action.code === 'replace') setConfirm({ action: action.code, id: budgetId });
                 }}
@@ -330,7 +350,7 @@ export default function ExternalProductionBudgets() {
       <ConfirmDialog
         open={!!confirm}
         title="Confirmar acción"
-        description={confirm?.action === 'anule' ? <div><div>Esta acción anula el presupuesto y reversa asociaciones de órdenes de costo si existen.</div><label style={{ ...label, marginTop: 10 }}>Motivo de anulación <span style={{ color: 'var(--muted,#64748b)', fontWeight: 600 }}>(obligatorio si tiene órdenes de costo)</span></label><textarea value={anuleReason} onChange={(event) => setAnuleReason(event.target.value)} rows={3} style={{ ...input, height: 'auto', paddingTop: 10, fontFamily: 'inherit' }} /></div> : confirm?.action === 'replace' ? 'Se creará un presupuesto activo de reemplazo, siguiendo el flujo legacy para presupuestos en Nota Crédito.' : 'Esta acción aplica el comportamiento legacy para Producción Externa.'}
+        description={confirm?.action === 'anule' ? <div><div>Esta acción anula el presupuesto y reversa asociaciones de órdenes de costo si existen.</div><label style={{ ...label, marginTop: 10 }}>Motivo de anulación <span style={{ color: 'var(--muted,#64748b)', fontWeight: 600 }}>(obligatorio si tiene órdenes de costo)</span></label><textarea value={anuleReason} onChange={(event) => setAnuleReason(event.target.value)} rows={3} style={{ ...input, height: 'auto', paddingTop: 10, fontFamily: 'inherit' }} /></div> : confirm?.action === 'replace' ? 'Se creará un presupuesto activo de reemplazo para presupuestos en Nota Crédito.' : `Esta acción aplicará el flujo de Producción ${isInternal ? 'Interna' : 'Externa'}.`}
         confirmLabel="Confirmar"
         tone={confirm?.action === 'anule' ? 'danger' : 'warning'}
         onConfirm={runAction}

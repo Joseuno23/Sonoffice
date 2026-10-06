@@ -22,3 +22,4 @@ function resolveLegacySupportDir() {
 }
 
 export const EXTERNAL_PRODUCTION_SUPPORT_DIR = resolveLegacySupportDir();
+export const INTERNAL_PRODUCTION_SUPPORT_DIR = resolveLegacySupportDir();
