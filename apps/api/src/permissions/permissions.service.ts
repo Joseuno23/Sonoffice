@@ -5,6 +5,7 @@ import { RoleActionModule, RoleActionPermissionsData } from './permissions.types
 const ROOT_ROLE_ID = 1;
 const ROOT_MODULE_ACTION_FALLBACKS: Record<string, string[]> = {
   'cost-orders': ['create', 'duplicate', 'compensate', 'edit', 'finish', 'replace', 'print', 'add-obs', 'anule'],
+  'expense-orders': ['create', 'edit', 'print', 'print-preview', 'approve', 'anule', 'recurrence', 'approve-bulk'],
   'external-production-budgets': ['create', 'edit', 'print', 'print-order', 'support', 'duplicate', 'replace', 'add-order', 'anule', 'view-anule'],
   'internal-production-budgets': ['create', 'edit', 'print', 'support', 'duplicate', 'replace', 'add-order', 'anule', 'view-anule'],
 };

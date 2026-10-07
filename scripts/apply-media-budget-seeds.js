@@ -11,6 +11,8 @@ const SQL_FILES = [
   'database/sql/012_seed_media_budgets_menu.sql',
   'database/sql/013_seed_external_production_budget_actions.sql',
   'database/sql/014_seed_internal_production_budget_actions.sql',
+  'database/sql/015_seed_expense_orders_menu_actions.sql',
+  'database/sql/016_seed_reports_expense_orders_menu.sql',
 ];
 
 function parseEnvFile(filePath) {
@@ -119,20 +121,29 @@ async function main() {
     console.log('==> Seeds aplicados correctamente.');
 
     const [menuRows] = await connection.query(
-      "SELECT code, COUNT(*) AS count FROM app_menus WHERE code LIKE 'media.budgets%' GROUP BY code ORDER BY code"
+      "SELECT code, COUNT(*) AS count FROM app_menus WHERE code LIKE 'media.budgets%' OR code LIKE 'media.expense-orders%' GROUP BY code ORDER BY code"
+    );
+    const [reportMenuRows] = await connection.query(
+      "SELECT code, COUNT(*) AS count FROM app_menus WHERE code LIKE 'reports.cost-orders%' OR code LIKE 'reports.expense-orders%' GROUP BY code ORDER BY code"
     );
     const [actionRows] = await connection.query(
-      "SELECT module_code, COUNT(*) AS count FROM app_actions WHERE module_code IN ('external-production-budgets', 'internal-production-budgets') GROUP BY module_code ORDER BY module_code"
+      "SELECT module_code, COUNT(*) AS count FROM app_actions WHERE module_code IN ('external-production-budgets', 'internal-production-budgets', 'expense-orders') GROUP BY module_code ORDER BY module_code"
     );
 
     console.log('');
-    console.log('==> Conteo app_menus budget codes');
+    console.log('==> Conteo app_menus media codes');
     for (const row of menuRows) {
       console.log(`${row.code}: ${row.count}`);
     }
 
     console.log('');
-    console.log('==> Conteo app_actions budget modules');
+    console.log('==> Conteo app_menus report codes');
+    for (const row of reportMenuRows) {
+      console.log(`${row.code}: ${row.count}`);
+    }
+
+    console.log('');
+    console.log('==> Conteo app_actions media modules');
     for (const row of actionRows) {
       console.log(`${row.module_code}: ${row.count}`);
     }

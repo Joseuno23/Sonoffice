@@ -167,6 +167,29 @@ export const api = {
     return req('/cost-orders/budget-lines' + (qs ? '?' + qs : ''));
   },
   attachCostOrderBudgetLine: (id, payload) => req('/cost-orders/' + encodeURIComponent(id) + '/budget-lines', { method: 'POST', body: JSON.stringify(payload) }),
+  getExpenseOrders: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '') as [string, string][],
+    ).toString();
+    return req('/expense-orders' + (qs ? '?' + qs : ''));
+  },
+  getExpenseOrderStatuses: () => req('/expense-orders/statuses'),
+  getExpenseOrderProviders: (search) => req('/expense-orders/providers' + (search ? '?search=' + encodeURIComponent(search) : '')),
+  getExpenseOrderDefaults: () => req('/expense-orders/defaults'),
+  createExpenseOrder: (payload) => req('/expense-orders', { method: 'POST', body: JSON.stringify(payload) }),
+  getExpenseOrder: (id) => req('/expense-orders/' + encodeURIComponent(id)),
+  updateExpenseOrder: (id, payload) => req('/expense-orders/' + encodeURIComponent(id), { method: 'PUT', body: JSON.stringify(payload) }),
+  getExpenseOrderPrintData: (id) => req('/expense-orders/' + encodeURIComponent(id) + '/print-data'),
+  printExpenseOrder: (id) => req('/expense-orders/' + encodeURIComponent(id) + '/print', { method: 'POST' }),
+  approveExpenseOrder: (id) => req('/expense-orders/' + encodeURIComponent(id) + '/approve', { method: 'POST' }),
+  approveExpenseOrdersBulk: (file) => {
+    const formData = new FormData();
+    formData.append('files', file);
+    return reqForm('/expense-orders/approve-bulk', formData);
+  },
+  anuleExpenseOrder: (id) => req('/expense-orders/' + encodeURIComponent(id) + '/anule', { method: 'POST' }),
+  setExpenseOrderRecurrence: (id, payload) => req('/expense-orders/' + encodeURIComponent(id) + '/recurrence', { method: 'POST', body: JSON.stringify(payload) }),
+  clearExpenseOrderRecurrence: (id) => req('/expense-orders/' + encodeURIComponent(id) + '/recurrence', { method: 'DELETE' }),
   getExternalProductionBudgets: (params = {}) => {
     const qs = new URLSearchParams(
       Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '') as [string, string][],
@@ -245,11 +268,18 @@ export const api = {
   },
   getInternalProductionBudgetIncentives: () => Promise.resolve({ success: true, data: [], message: null }),
   getCostOrdersReportOptions: () => req('/reports/cost-orders/options'),
+  getExpenseOrdersReportOptions: () => req('/reports/expense-orders/options'),
   downloadCostOrdersReport: (params = {}) => {
     const qs = new URLSearchParams(
       Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '') as [string, string][],
     ).toString();
     return reqBlob('/reports/cost-orders/export' + (qs ? '?' + qs : ''));
+  },
+  downloadExpenseOrdersReport: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '') as [string, string][],
+    ).toString();
+    return reqBlob('/reports/expense-orders/export' + (qs ? '?' + qs : ''));
   },
   downloadCostOrdersCompensationReport: (params = {}) => {
     const qs = new URLSearchParams(

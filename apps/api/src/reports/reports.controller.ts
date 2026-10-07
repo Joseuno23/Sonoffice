@@ -1,8 +1,9 @@
 import { Controller, Get, Header, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
+import { AuthUser, RequestUser } from '../auth/auth-user.decorator';
 import { AuthGuard } from '../auth/auth.guard';
-import { CostOrdersCompensationReportQuery, CostOrdersReportQuery } from './reports.types';
-import { ReportsService, ReportsValidationError } from './reports.service';
+import { CostOrdersCompensationReportQuery, CostOrdersReportQuery, ExpenseOrdersReportQuery } from './reports.types';
+import { ReportsForbiddenError, ReportsService, ReportsValidationError } from './reports.service';
 
 @Controller('reports')
 @UseGuards(AuthGuard)
@@ -43,6 +44,39 @@ export class ReportsController {
         return;
       }
       res.status(500).json({ success: false, data: null, message: 'No se pudo generar el reporte de compensación de órdenes de costo' });
+    }
+  }
+
+  @Get('expense-orders/options')
+  async getExpenseOrdersOptions(@AuthUser() user: RequestUser, @Res() res: Response) {
+    try {
+      res.json(await this.reportsService.getExpenseOrdersOptions(user.roleId));
+    } catch (error) {
+      if (error instanceof ReportsForbiddenError) {
+        res.status(403).json({ success: false, data: null, message: error.message });
+        return;
+      }
+      res.status(500).json({ success: false, data: null, message: 'No se pudieron cargar las opciones del reporte' });
+    }
+  }
+
+  @Get('expense-orders/export')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  async exportExpenseOrders(@AuthUser() user: RequestUser, @Query() query: ExpenseOrdersReportQuery, @Res() res: Response) {
+    try {
+      const report = await this.reportsService.exportExpenseOrders(user.roleId, query);
+      res.setHeader('Content-Disposition', `attachment; filename="${report.filename}"`);
+      res.send(report.content);
+    } catch (error) {
+      if (error instanceof ReportsValidationError) {
+        res.status(400).json({ success: false, data: null, message: error.message });
+        return;
+      }
+      if (error instanceof ReportsForbiddenError) {
+        res.status(403).json({ success: false, data: null, message: error.message });
+        return;
+      }
+      res.status(500).json({ success: false, data: null, message: 'No se pudo generar el reporte de órdenes de gasto' });
     }
   }
 }

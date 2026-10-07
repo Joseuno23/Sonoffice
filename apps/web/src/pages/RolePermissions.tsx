@@ -15,6 +15,7 @@ interface ActionModule { moduleCode: string; actions: ActionItem[]; }
 
 const MODULE_LABELS: Record<string, string> = {
   'cost-orders': 'Órdenes de costo',
+  'expense-orders': 'Órdenes de gastos',
   'external-production-budgets': 'Presupuesto Producción Externa',
   'internal-production-budgets': 'Presupuesto Producción Interna',
 };

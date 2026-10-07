@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { RowDataPacket } from 'mysql2';
 import { DbService } from '../db/db.service';
-import { CostOrdersCompensationReportFilters, CostOrdersCompensationReportRow, CostOrdersReportFilters, CostOrdersReportRow, ReportOptionRow } from './reports.types';
+import { CostOrdersCompensationReportFilters, CostOrdersCompensationReportRow, CostOrdersReportFilters, CostOrdersReportRow, ExpenseOrdersReportFilters, ExpenseOrdersReportRow, ReportOptionRow } from './reports.types';
 
 type ColumnSet = Set<string>;
 
@@ -106,6 +106,44 @@ export class ReportsRepository {
         LEFT JOIN sys_tipo_servicio s ON s.id_tipo_servicio = o.id_servicio
         ORDER BY o.id_orden, d.id_detalle`,
       [filters.fechaIni, filters.fechaFin],
+    );
+  }
+
+  async findExpenseOrdersReport(filters: ExpenseOrdersReportFilters): Promise<ExpenseOrdersReportRow[]> {
+    const conditions = ['o.ordgas_fecha BETWEEN ? AND ?'];
+    const params: (string | number)[] = [filters.fechaIni, filters.fechaFin];
+
+    if (filters.proveedor !== null) {
+      conditions.push('o.pvcl_id = ?');
+      params.push(filters.proveedor);
+    }
+
+    return this.db.execute<ExpenseOrdersReportRow[]>(
+      `SELECT
+         o.ordgas_fecha AS fecha,
+         o.ordgas_id AS orden,
+         c.nombre AS proveedor,
+         c.documento AS documento,
+         c.sap AS sap,
+         GROUP_CONCAT(d.dordgas_detalle) AS detalle,
+         o.ordgas_valor AS valor,
+         o.ordgas_desc AS descuento,
+         o.ordgas_iva AS iva,
+         o.ordgas_total AS total,
+         s.nombre AS servicio,
+         s.tpsv_cebe AS cebe,
+         u.usr_nombre AS usuario,
+         e.est_nombre AS estado
+       FROM ord_gastos o
+       INNER JOIN sys_clients c ON o.pvcl_id = c.id_client
+       INNER JOIN cat_estados e ON o.ordgas_estado = e.est_id
+       INNER JOIN usuarios u ON o.usr_id = u.usr_id
+       LEFT JOIN sys_tipo_servicio s ON o.tpsv_id = s.id_tipo_servicio
+       LEFT JOIN det_ordgasto d ON d.ordgas_id = o.ordgas_id
+       WHERE ${conditions.join(' AND ')}
+       GROUP BY o.ordgas_id
+       ORDER BY fecha, orden`,
+      params,
     );
   }
 

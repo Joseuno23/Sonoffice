@@ -22,6 +22,7 @@ import CostOrderPrint from '../pages/CostOrderPrint';
 import CostOrderCompensate from '../pages/CostOrderCompensate';
 import CostOrdersReport from '../pages/CostOrdersReport';
 import CostOrdersCompensationReport from '../pages/CostOrdersCompensationReport';
+import ExpenseOrdersReport from '../pages/ExpenseOrdersReport';
 import RolePermissions from '../pages/RolePermissions';
 import BudgetPlaceholder from '../pages/BudgetPlaceholder';
 import ExternalProductionBudgets from '../pages/ExternalProductionBudgets';
@@ -32,6 +33,10 @@ import InternalProductionBudgets from '../pages/InternalProductionBudgets';
 import InternalProductionBudgetForm from '../pages/InternalProductionBudgetForm';
 import InternalProductionBudgetPrint from '../pages/InternalProductionBudgetPrint';
 import InternalProductionBudgetSupport from '../pages/InternalProductionBudgetSupport';
+import ExpenseOrdersList from '../pages/ExpenseOrdersList';
+import ExpenseOrderForm from '../pages/ExpenseOrderForm';
+import ExpenseOrderPrint from '../pages/ExpenseOrderPrint';
+import ExpenseOrderApproveBulk from '../pages/ExpenseOrderApproveBulk';
 
 const budgetTypes = [
   { slug: 'prensa-aviso', label: 'Prensa / Aviso' },
@@ -60,6 +65,14 @@ export default function AppRoutes() {
         element={
           <RequireAuth>
             <CostOrderPrint />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/medios/ordenes-gastos/:id/imprimir"
+        element={
+          <RequireAuth>
+            <ExpenseOrderPrint />
           </RequireAuth>
         }
       />
@@ -114,6 +127,10 @@ export default function AppRoutes() {
         <Route path="/medios/ordenes-costo/compensar" element={<CostOrderCompensate />} />
         <Route path="/medios/ordenes-costo/nueva" element={<CostOrderForm />} />
         <Route path="/medios/ordenes-costo/:id/editar" element={<CostOrderForm />} />
+        <Route path="/medios/ordenes-gastos/listar" element={<ExpenseOrdersList />} />
+        <Route path="/medios/ordenes-gastos/aprobacion-masiva" element={<ExpenseOrderApproveBulk />} />
+        <Route path="/medios/ordenes-gastos/nueva" element={<ExpenseOrderForm />} />
+        <Route path="/medios/ordenes-gastos/:id/editar" element={<ExpenseOrderForm />} />
         <Route path="/medios/presupuestos/produccion-externa/listar" element={<ExternalProductionBudgets />} />
         <Route path="/medios/presupuestos/produccion-externa/nuevo" element={<ExternalProductionBudgetForm />} />
         <Route path="/medios/presupuestos/produccion-externa/:id/editar" element={<ExternalProductionBudgetForm />} />
@@ -128,6 +145,8 @@ export default function AppRoutes() {
         <Route path="/reportes/ordenes-costo" element={<Navigate to="/reportes/ordenes-costo/general" replace />} />
         <Route path="/reportes/ordenes-costo/general" element={<CostOrdersReport />} />
         <Route path="/reportes/ordenes-costo/compensacion" element={<CostOrdersCompensationReport />} />
+        <Route path="/reportes/ordenes-gasto" element={<Navigate to="/reportes/ordenes-gasto/general" replace />} />
+        <Route path="/reportes/ordenes-gasto/general" element={<ExpenseOrdersReport />} />
         <Route path="/accesos-rapidos/codigo-etica-conducta" element={<CodeOfEthics />} />
         <Route path="/accesos-rapidos/politicas-sig" element={<SigPolicies />} />
         <Route path="/accesos-rapidos/alcance-sig" element={<SigScope />} />

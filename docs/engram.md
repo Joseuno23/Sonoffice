@@ -41,6 +41,68 @@ This file is the portable, versioned Engram context for the `sonoffice` project.
 
 Each entry includes the Engram ID, creation date, type, title, optional topic key, session ID, and full saved content.
 
+## Manual Additions After Snapshot
+
+### 2026-10-07 — Órdenes de gastos OG-007/008/009
+
+**What**: Se corrigió la persistencia de creación de Órdenes de gastos para no forzar `ord_gastos.tpsv_id = NULL` cuando el formulario no envía servicio y para insertar detalles con `det_ordgasto.tpsrv_id = 0`; también se alineó el imprimible con el patrón visual de `CostOrderPrint` y se validó que estados usen `cat_estados`.
+
+**Why**: El usuario reportó error al crear una orden con proveedor y detalle, diferencias visuales en el imprimible, y pidió validar la tabla de estados del módulo.
+
+**Where**: `apps/api/src/expense-orders/expense-orders.repository.ts`, `apps/api/src/expense-orders/expense-orders.service.ts`, `apps/web/src/pages/ExpenseOrderPrint.tsx`, `odd/tasks/ordenes-gastos.md`, `docs/ai-context.md`.
+
+**Learned**: La base local `bd_medios` tiene trigger `inserOrdgasto` sobre `ord_gastos` definido como `adminop@%`; como ese usuario no existe, cualquier INSERT local falla con `ER_NO_SUCH_USER` antes de insertar detalles. El módulo nuevo y el legacy `M_Expense.php` consultan `cat_estados` para `ordgas_estado`.
+
+### 2026-10-07 — Órdenes de gastos conserva códigos técnicos `expense-orders`
+
+**What**: Órdenes de gastos conserva los códigos técnicos `expense-orders`, `media.expense-orders`, `media.expense-orders.list` y helpers/archivos `ExpenseOrder*`; solo los textos visibles quedan en español.
+
+**Why**: El usuario aclaró que el renombre técnico a `ordenes-gastos` fue incorrecto; la intención era traducir textos visibles, no rutas, códigos ni nombres técnicos.
+
+**Where**: `docs/ai-context.md`, `apps/api/src/expense-orders/`, `apps/web/src/pages/ExpenseOrdersList.tsx`, `apps/web/src/pages/ExpenseOrderForm.tsx`, `apps/web/src/pages/ExpenseOrderPrint.tsx`, `database/sql/015_seed_expense_orders_menu_actions.sql`.
+
+**Learned**: La acción técnica sigue siendo `print-preview`, pero el label visible debe ser `Vista previa`. No tocar DB local para corregir códigos `ordenes-gastos`; primero corregir archivos y luego se verá seed/aplicación.
+
+### 2026-10-07 — Reparación de trigger `inserOrdgasto`
+
+**What**: Se agregó el comando `npm run db:repair-expense-order-triggers` para reparar de forma idempotente triggers de Órdenes de gastos cuyo `DEFINER` apunta a un usuario inexistente, recreándolos sin `DEFINER` explícito y preservando `ACTION_STATEMENT`, timing, evento y contexto de sesión relevante.
+
+**Why**: La creación de `ord_gastos` fallaba en MySQL/MariaDB con `ER_NO_SUCH_USER` porque el trigger `inserOrdgasto` estaba definido como `adminop@%` y ese usuario no existía.
+
+**Where**: `scripts/repair-expense-order-triggers.js`, `package.json`, `docs/ai-context.md`, `odd/tasks/ordenes-gastos.md`.
+
+**Learned**: La reparación no debe ejecutarse dentro de una transacción porque `DROP TRIGGER`/`CREATE TRIGGER` hacen commits implícitos. En la base local `bd_medios`, el comando real reparó `ord_gastos.inserOrdgasto` y un dry-run posterior confirmó que el nuevo definer `root@localhost` existe y no requiere más cambios.
+
+### 2026-10-07 — Órdenes de gastos aprobadas quedan solo lectura
+
+**What**: Se bloqueó la edición de Órdenes de gastos aprobadas o impresas en acciones permitidas, detalle editable y backend.
+
+**Why**: El usuario reportó que una OG aprobada podía editarse, cuando debe poder verse como una OC pero no modificarse.
+
+**Where**: `apps/api/src/expense-orders/expense-orders.service.ts`, `apps/api/src/expense-orders/expense-orders.repository.ts`, `odd/tasks/ordenes-gastos.md`, `docs/ai-context.md`.
+
+**Learned**: El legacy ya ocultaba editar por impresión y estado, pero no bloqueaba por `aprobada`; la migración corrige hacia el patrón OC pedido: lectura permitida y mutación bloqueada en backend para aprobadas/impresas.
+
+### 2026-10-07 — Órdenes de gastos aprobación masiva Excel
+
+**What**: Se migró el submenu legacy `Aprobar orden` de Órdenes de gastos con ruta nueva `/medios/ordenes-gastos/aprobacion-masiva`, endpoint `POST /expense-orders/approve-bulk`, parser Excel y seed de menú.
+
+**Why**: El usuario pidió completar la tarea OG-012 pendiente para cargar Excel y aprobar órdenes en batch sin modificar `Erp/`.
+
+**Where**: `apps/api/src/expense-orders/expense-orders.controller.ts`, `apps/api/src/expense-orders/expense-orders.service.ts`, `apps/api/src/expense-orders/expense-orders.repository.ts`, `apps/api/src/expense-orders/expense-orders.types.ts`, `apps/web/src/pages/ExpenseOrderApproveBulk.tsx`, `apps/web/src/routes/AppRoutes.tsx`, `apps/web/src/services/api.ts`, `database/sql/015_seed_expense_orders_menu_actions.sql`, `apps/api/package.json`, `package-lock.json`, `docs/ai-context.md`, `odd/tasks/ordenes-gastos.md`.
+
+**Learned**: El legacy parsea primera hoja, fila 2+, corta en `A` vacía, usa `B` como `ordgas_id` y `O` exactamente `OK`; la migración conserva esa estructura pero omite anuladas para ser consistente con `approve()` individual y devuelve conteos de parseadas/aprobadas/omitidas.
+
+### 2026-10-07 — Reporte general de Órdenes de gasto
+
+**What**: Se migró `Expense/Report` como `Reportes > Órdenes de gasto > General`, con backend NestJS, página React, helpers API, rutas y seed de menú; el seed `016` fue aplicado localmente con `npm run db:apply-media-seeds`.
+
+**Why**: OG-013 estaba pendiente y el usuario pidió replicar la estructura legacy siguiendo el patrón migrado de `Órdenes de costo > General`.
+
+**Where**: `apps/api/src/reports/`, `apps/web/src/pages/ExpenseOrdersReport.tsx`, `apps/web/src/services/api.ts`, `apps/web/src/routes/AppRoutes.tsx`, `database/sql/016_seed_reports_expense_orders_menu.sql`, `scripts/apply-media-budget-seeds.js`, `odd/tasks/ordenes-gastos.md`, `docs/ai-context.md`.
+
+**Learned**: El reporte mantiene fecha obligatoria y proveedor opcional, no expone cliente, exporta CSV con BOM/`;` por consistencia con reportes migrados, replica porcentajes con sufijo ` %` y usa `LEFT JOIN sys_tipo_servicio` deliberadamente para no excluir OG migradas sin servicio. El runner `npm run db:apply-media-seeds` incluye el seed `016` y reporta conteos `reports.*`; la ejecución local confirmó `reports.expense-orders` y `reports.expense-orders.general`.
+
 ### #3869 — Discovered initial migration structure
 
 - Date: `2026-07-16 16:06:20`

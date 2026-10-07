@@ -322,6 +322,165 @@ de producción externa y ajustes alrededor de órdenes de costo.
   migraciones o cambios funcionales de módulos.
   - `.opencode/skills/sonoffice-legacy-migration/SKILL.md`
   - `AGENTS.md`
+- 2026-10-07: Migración inicial de Órdenes de gastos como módulo nuevo
+  `expense-orders`. Replica el legacy `Managerbudget/O_Expense` para listado,
+  cabecera, detalles, impresión, aprobación, anulación y recurrencia manual.
+  `Expense/Report`, `executeRecurrencia` automático y aprobación masiva Excel
+  quedan fuera del primer slice; se dejó permiso administrable `approve-bulk`
+  reservado sin UI/endpoint. El IVA inicial se toma de `sys_data_billing.iva` y
+  usa fallback documentado 19 solo si la fuente no devuelve valor válido. Los
+  endpoints validan `app_actions` por módulo `expense-orders`; root tiene fallback
+  implícito en `PermissionsService`. El seed `015` crea menú
+  `media.expense-orders` / `media.expense-orders.list`, acciones `create`,
+  `edit`, `print`, `approve`, `anule`, `recurrence`, `approve-bulk`, y visibilidad
+  de menú para rol 33. El runner `npm run db:apply-media-budget-seeds` ahora
+  incluye también este seed; se agregó alias `npm run db:apply-media-seeds`.
+  - `apps/api/src/expense-orders/`
+  - `apps/web/src/pages/ExpenseOrdersList.tsx`
+  - `apps/web/src/pages/ExpenseOrderForm.tsx`
+  - `apps/web/src/pages/ExpenseOrderPrint.tsx`
+  - `apps/web/src/services/api.ts`
+  - `apps/web/src/routes/AppRoutes.tsx`
+  - `database/sql/015_seed_expense_orders_menu_actions.sql`
+  - `scripts/apply-media-budget-seeds.js`
+  - `package.json`
+- 2026-10-07: Corrección quirúrgica de paridad legacy en el formulario de
+  Órdenes de gastos. Las vistas legacy `V_Form_New.php` y `V_Form_Update.php`
+  no muestran ni exigen `Servicio` ni `Cantidad`; el formulario migrado ahora
+  solo muestra proveedor, observación, descuento/IVA/valores y detalles con
+  descripción + valor. El payload ya no envía `idServicio`; los detalles viajan
+  con `cantidad: 1` solo por compatibilidad interna. Backend permite crear con
+  `ord_gastos.tpsv_id = NULL` y, al editar sin `idServicio`, preserva el
+  `tpsv_id` existente para órdenes legacy.
+  - `apps/web/src/pages/ExpenseOrderForm.tsx`
+  - `apps/api/src/expense-orders/expense-orders.service.ts`
+  - `apps/api/src/expense-orders/expense-orders.repository.ts`
+- 2026-10-07: Corrección de blockers de Órdenes de gastos. La anulación replica
+  `VS_Model::getConsecutivo('anulacion_og')`: usa `consecutivo + 1` como número
+  del documento y persiste ese mismo valor en `sys_consecutivos`; si falta la
+  fila retorna error de consecutivo y el valor actual `0` ahora produce `1`.
+  También se bloquea anulación para estados `39` y `9999`. El acceso de lectura
+  de `list`/`get` valida menú `media.expense-orders.list` / `media.expense-orders`
+  con root implícito, y `requireAction` valida primero menú y luego acción para
+  mutaciones, impresión y recurrencia. La impresión distingue permiso `print` para
+  órdenes aprobadas y nuevo permiso administrable `print-preview` para preview de
+  no aprobadas; el listado muestra `Imprimir` o `Vista previa` según `aprobada`, y
+  `Vista previa` abre la misma vista imprimible sin disparar autoimpresión desde el
+  listado. Se retiró la columna `Servicio` del listado y se dejó de exponer el
+  endpoint/helper de servicios para órdenes de gastos.
+  - `apps/api/src/expense-orders/`
+  - `apps/api/src/permissions/permissions.service.ts`
+  - `apps/web/src/pages/ExpenseOrdersList.tsx`
+  - `apps/web/src/services/api.ts`
+  - `database/sql/015_seed_expense_orders_menu_actions.sql`
+- 2026-10-07: Se revirtió el intento de renombre técnico de Órdenes de gastos:
+  rutas API, `module_code`, códigos de menú/acción, helpers del cliente, carpeta
+  backend, páginas frontend y seed vuelven a `expense-orders`. Los textos visibles
+  permanecen en español y las rutas frontend siguen usando `/medios/ordenes-gastos`;
+  la acción técnica `print-preview` muestra el label
+  visible `Vista previa`.
+  - `apps/api/src/expense-orders/`
+  - `apps/web/src/pages/ExpenseOrdersList.tsx`
+  - `apps/web/src/pages/ExpenseOrderForm.tsx`
+  - `apps/web/src/pages/ExpenseOrderPrint.tsx`
+  - `database/sql/015_seed_expense_orders_menu_actions.sql`
+  - `scripts/apply-media-budget-seeds.js`
+- 2026-10-07: Seguimiento de Órdenes de gastos OG-007/008/009. La creación se
+  ajustó para replicar mejor el legacy: al crear sin servicio el backend omite
+  `ord_gastos.tpsv_id` y deja actuar el default de la tabla, como `V_Form_New.php`,
+  y los detalles se insertan con `det_ordgasto.tpsrv_id = 0` para no depender del
+  default implícito de MySQL no estricto. La reproducción local con INSERT rollback
+  sigue bloqueada por infraestructura de DB: el trigger `inserOrdgasto` de
+  `ord_gastos` tiene definer `adminop@%`, pero ese usuario no existe en la base
+  local (`ER_NO_SUCH_USER`). La API ahora devuelve un mensaje específico para ese
+  caso en lugar del genérico.
+  - `apps/api/src/expense-orders/expense-orders.repository.ts`
+  - `apps/api/src/expense-orders/expense-orders.service.ts`
+- 2026-10-07: Imprimible de Órdenes de gastos alineado con el patrón visual de
+  `CostOrderPrint`: toolbar, hoja, cabecera, filas compactas, secciones, tabla,
+  totales, observación, nota y firmas. Mantiene autoimpresión y el título saneado
+  `OG_<id>_<proveedor>` para sugerir nombre de PDF.
+  - `apps/web/src/pages/ExpenseOrderPrint.tsx`
+- 2026-10-07: Estados de Órdenes de gastos validados contra `cat_estados`. El
+  repositorio nuevo usa `LEFT JOIN cat_estados e ON o.ordgas_estado = e.est_id`
+  para listado/detalle y `findStatuses()` consulta `ord_gastos` + `cat_estados`;
+  el legacy `M_Expense.php` usa la misma fuente en `GetPptoCompleteInfo()` y
+  `GetOrder()`. No se agregó tabla/fuente alternativa de estados.
+  - `apps/api/src/expense-orders/expense-orders.repository.ts`
+  - `Erp/application/models/Managerbudget/O_Expense/M_Expense.php` (solo lectura)
+  - `odd/tasks/ordenes-gastos.md`
+- 2026-10-07: Se agregó reparación operativa idempotente para triggers de
+  Órdenes de gastos con `DEFINER` inválido. El comando
+  `npm run db:repair-expense-order-triggers` lee `.env`, revisa triggers de
+  `ord_gastos`/`det_ordgasto` en `information_schema.TRIGGERS`, valida el
+  `DEFINER` contra `mysql.user` y solo recrea los triggers cuyo usuario no
+  existe, sin `DEFINER` explícito para que queden bajo el usuario conectado.
+  No ejecuta DDL dentro de transacciones y soporta `-- --dry-run`. En la base
+  local `bd_medios` se ejecutó la reparación real: `inserOrdgasto` pasó de
+  `adminop@%` inexistente a `root@localhost`; un dry-run posterior confirmó
+  idempotencia sin cambios pendientes.
+  - `scripts/repair-expense-order-triggers.js`
+  - `package.json`
+  - `odd/tasks/ordenes-gastos.md`
+- 2026-10-07: Órdenes de gastos aprobadas o impresas quedan solo lectura en la
+  migración nueva. El número de orden sigue abriendo el formulario para verla,
+  pero `edit` no se expone si `aprobada = 1` o `num_impresiones <> -1`, el
+  detalle devuelve `editable: false` y `PUT /expense-orders/:id` rechaza cambios
+  con `Solo se pueden editar órdenes activas sin aprobar ni imprimir`.
+  - `apps/api/src/expense-orders/expense-orders.service.ts`
+  - `apps/api/src/expense-orders/expense-orders.repository.ts`
+  - `odd/tasks/ordenes-gastos.md`
+- 2026-10-07: Submenu legacy `Aprobar orden` migrado para Órdenes de gastos.
+  La ruta nueva `/medios/ordenes-gastos/aprobacion-masiva` carga un Excel
+  `.xls/.xlsx` en el campo `files` y llama `POST /expense-orders/approve-bulk`.
+  El backend valida menú y acción `expense-orders.approve-bulk`, lee la primera
+  hoja desde fila 2 hasta la primera columna `A` vacía, toma columna `B` como
+  `ordgas_id` y solo aprueba filas con columna `O` exactamente `OK` luego de
+  `trim`. La actualización mantiene el efecto legacy (`ord_gastos.aprobada = 1`)
+  pero omite órdenes anuladas para quedar consistente con la aprobación individual
+  migrada. La respuesta informa parseadas, aprobadas y omitidas. El seed `015`
+  agrega el submenu visible `Aprobar orden` bajo `media.expense-orders` y lo
+  incluye en la visibilidad de rol 33 siguiendo el patrón del módulo.
+  - `apps/api/src/expense-orders/expense-orders.controller.ts`
+  - `apps/api/src/expense-orders/expense-orders.service.ts`
+  - `apps/api/src/expense-orders/expense-orders.repository.ts`
+  - `apps/api/src/expense-orders/expense-orders.types.ts`
+  - `apps/web/src/pages/ExpenseOrderApproveBulk.tsx`
+  - `apps/web/src/routes/AppRoutes.tsx`
+  - `apps/web/src/services/api.ts`
+  - `database/sql/015_seed_expense_orders_menu_actions.sql`
+  - `apps/api/package.json`
+  - `package-lock.json`
+  - `odd/tasks/ordenes-gastos.md`
+- 2026-10-07: Reporte legacy `Expense/Report` migrado como
+  `Reportes > Órdenes de gasto > General` (OG-013). Backend agrega
+  `GET /reports/expense-orders/options` y `GET /reports/expense-orders/export`
+  con validación de menú `reports.expense-orders.general` / `reports.expense-orders`;
+  root mantiene acceso implícito por `PermissionsService`. El CSV usa BOM y `;`,
+  nombre `reporte-ordenes-gasto-{fechaIni}_a_{fechaFin}.csv`, filtros fecha
+  obligatoria + proveedor opcional, sin filtro cliente, y columnas legacy exactas;
+  `Descuento` e `IVA` se exportan con sufijo ` %`, como el XLS legacy.
+  Diferencia deliberada frente al SQL legacy: `sys_tipo_servicio` se une con
+  `LEFT JOIN` para no perder OG migradas sin servicio. El seed `016` agrega
+  `reports.expense-orders` y `reports.expense-orders.general` con visibilidad
+  rol 33; el runner `npm run db:apply-media-seeds` lo incluye junto a los seeds
+  de medios/módulos ya existentes y ahora reporta conteos de menús `reports.*`,
+  pero el seed `016` no se ejecutó automáticamente durante esta implementación.
+  - `apps/api/src/reports/`
+  - `apps/web/src/pages/ExpenseOrdersReport.tsx`
+  - `apps/web/src/services/api.ts`
+  - `apps/web/src/routes/AppRoutes.tsx`
+  - `database/sql/016_seed_reports_expense_orders_menu.sql`
+  - `scripts/apply-media-budget-seeds.js`
+  - `odd/tasks/ordenes-gastos.md`
+- 2026-10-07: Seed de reportes de Órdenes de gasto aplicado localmente con
+  `npm run db:apply-media-seeds`. La salida confirmó `reports.expense-orders: 1`
+  y `reports.expense-orders.general: 1`, además de mantener
+  `reports.cost-orders.general` y `reports.cost-orders.compensation`. Root sigue
+  con acceso implícito; para roles no-root se usa la visibilidad creada por el
+  seed y la administración normal de permisos.
+  - `database/sql/016_seed_reports_expense_orders_menu.sql`
+  - `scripts/apply-media-budget-seeds.js`
 
 ## Auditoría previa al commit
 

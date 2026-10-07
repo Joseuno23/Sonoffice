@@ -19,6 +19,7 @@ import internalProductionBudgetConfig from './config/internal-production-budget.
 import { DbModule } from './db/db.module';
 import { ExternalProductionBudgetsModule } from './budgets/external-production/external-production-budgets.module';
 import { InternalProductionBudgetsModule } from './budgets/internal-production/internal-production-budgets.module';
+import { ExpenseOrdersModule } from './expense-orders/expense-orders.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { InternalProductionBudgetsModule } from './budgets/internal-production/i
     ReportsModule,
     ExternalProductionBudgetsModule,
     InternalProductionBudgetsModule,
+    ExpenseOrdersModule,
   ],
   controllers: [HealthController],
 })

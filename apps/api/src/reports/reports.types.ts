@@ -12,6 +12,12 @@ export interface CostOrdersReportQuery {
   proveedor?: unknown;
 }
 
+export interface ExpenseOrdersReportQuery {
+  fechaIni?: unknown;
+  fechaFin?: unknown;
+  proveedor?: unknown;
+}
+
 export type CostOrdersCompensationReportStatus = 'cobrados' | 'pendientes';
 
 export interface CostOrdersCompensationReportQuery {
@@ -24,6 +30,12 @@ export interface CostOrdersReportFilters {
   fechaIni: string;
   fechaFin: string;
   cliente: number | null;
+  proveedor: number | null;
+}
+
+export interface ExpenseOrdersReportFilters {
+  fechaIni: string;
+  fechaFin: string;
   proveedor: number | null;
 }
 
@@ -80,7 +92,28 @@ export interface CostOrdersCompensationReportRow extends RowDataPacket {
   faltanteDetalle: number | string | null;
 }
 
+export interface ExpenseOrdersReportRow extends RowDataPacket {
+  fecha: Date | string | null;
+  orden: number | string | null;
+  proveedor: string | null;
+  documento: string | null;
+  sap: string | null;
+  detalle: string | null;
+  valor: number | string | null;
+  descuento: number | string | null;
+  iva: number | string | null;
+  total: number | string | null;
+  servicio: string | null;
+  cebe: string | null;
+  usuario: string | null;
+  estado: string | null;
+}
+
 export interface CostOrdersReportOptions {
   clientes: { id: number; label: string }[];
+  proveedores: { id: number; label: string }[];
+}
+
+export interface ExpenseOrdersReportOptions {
   proveedores: { id: number; label: string }[];
 }

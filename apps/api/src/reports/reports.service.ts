@@ -1,12 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { CostOrdersCompensationReportFilters, CostOrdersCompensationReportQuery, CostOrdersCompensationReportRow, CostOrdersReportFilters, CostOrdersReportOptions, CostOrdersReportQuery, CostOrdersReportRow } from './reports.types';
+import { PermissionsService } from '../permissions/permissions.service';
+import { CostOrdersCompensationReportFilters, CostOrdersCompensationReportQuery, CostOrdersCompensationReportRow, CostOrdersReportFilters, CostOrdersReportOptions, CostOrdersReportQuery, CostOrdersReportRow, ExpenseOrdersReportFilters, ExpenseOrdersReportOptions, ExpenseOrdersReportQuery, ExpenseOrdersReportRow } from './reports.types';
 import { ReportsRepository } from './reports.repository';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly reportsRepository: ReportsRepository) {}
+  constructor(
+    private readonly reportsRepository: ReportsRepository,
+    private readonly permissionsService: PermissionsService,
+  ) {}
 
   async getCostOrdersOptions(): Promise<{ success: true; data: CostOrdersReportOptions; message: null } | { success: false; data: null; message: string }> {
     try {
@@ -41,6 +45,28 @@ export class ReportsService {
     return { filename, content: this.toCompensationCsv(rows) };
   }
 
+  async getExpenseOrdersOptions(roleId: number): Promise<{ success: true; data: ExpenseOrdersReportOptions; message: null } | { success: false; data: null; message: string }> {
+    await this.requireExpenseOrdersReportAccess(roleId);
+    try {
+      const proveedores = await this.reportsRepository.findProviders();
+      return {
+        success: true,
+        data: { proveedores: proveedores.map((row) => ({ id: Number(row.id), label: row.label })) },
+        message: null,
+      };
+    } catch {
+      return { success: false, data: null, message: 'No se pudieron cargar las opciones del reporte' };
+    }
+  }
+
+  async exportExpenseOrders(roleId: number, query: ExpenseOrdersReportQuery): Promise<{ filename: string; content: string }> {
+    await this.requireExpenseOrdersReportAccess(roleId);
+    const filters = this.normalizeExpenseOrdersFilters(query);
+    const rows = await this.reportsRepository.findExpenseOrdersReport(filters);
+    const filename = `reporte-ordenes-gasto-${filters.fechaIni}_a_${filters.fechaFin}.csv`;
+    return { filename, content: this.toExpenseOrdersCsv(rows) };
+  }
+
   private normalizeFilters(query: CostOrdersReportQuery): CostOrdersReportFilters {
     const fechaIni = this.toDateString(query.fechaIni);
     const fechaFin = this.toDateString(query.fechaFin);
@@ -63,6 +89,19 @@ export class ReportsService {
       throw new ReportsValidationError('El estado del reporte debe ser cobrados o pendientes');
     }
     return { fechaIni, fechaFin, status: query.status };
+  }
+
+  private normalizeExpenseOrdersFilters(query: ExpenseOrdersReportQuery): ExpenseOrdersReportFilters {
+    const fechaIni = this.toDateString(query.fechaIni);
+    const fechaFin = this.toDateString(query.fechaFin);
+    if (!fechaIni || !fechaFin) throw new ReportsValidationError('Fecha desde y fecha hasta son obligatorias');
+    if (fechaIni > fechaFin) throw new ReportsValidationError('La fecha desde no puede ser mayor a la fecha hasta');
+    return { fechaIni, fechaFin, proveedor: this.toOptionalId(query.proveedor) };
+  }
+
+  private async requireExpenseOrdersReportAccess(roleId: number): Promise<void> {
+    const allowed = await this.permissionsService.hasMenuAccess(roleId, ['reports.expense-orders.general', 'reports.expense-orders']);
+    if (!allowed) throw new ReportsForbiddenError('No cuenta con permisos para consultar este reporte');
   }
 
   private toDateString(value: unknown): string | null {
@@ -126,6 +165,23 @@ export class ReportsService {
     return '\uFEFF' + lines.map((line) => line.map((value) => this.csvCell(value)).join(';')).join('\r\n');
   }
 
+  private toExpenseOrdersCsv(rows: ExpenseOrdersReportRow[]): string {
+    const headers = [
+      'Fecha', 'Orden', 'Proveedor', 'Documento', 'SAP', 'Detalle', 'Valor', 'Descuento',
+      'IVA', 'Total', 'Servicio', 'CEBE', 'Usuario', 'Estado',
+    ];
+    const lines = [headers, ...rows.map((row) => [
+      this.formatDate(row.fecha), row.orden, row.proveedor, row.documento, row.sap, row.detalle,
+      row.valor, this.formatPercent(row.descuento), this.formatPercent(row.iva), row.total, row.servicio, row.cebe, row.usuario, row.estado,
+    ])];
+    return '\uFEFF' + lines.map((line) => line.map((value) => this.csvCell(value)).join(';')).join('\r\n');
+  }
+
+  private formatPercent(value: unknown): string | null {
+    if (value === null || value === undefined || value === '') return null;
+    return `${value} %`;
+  }
+
   private csvCell(value: unknown): string {
     if (value === null || value === undefined) return '';
     const text = String(value).replace(/\r?\n/g, ' ');
@@ -140,3 +196,5 @@ export class ReportsService {
 }
 
 export class ReportsValidationError extends Error {}
+
+export class ReportsForbiddenError extends Error {}

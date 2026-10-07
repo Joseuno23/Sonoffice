@@ -16,4 +16,5 @@ Erp/
 
 # Tooling SDD y archivos sueltos no versionables
 .atl/
+.codegraph/
 support.js
