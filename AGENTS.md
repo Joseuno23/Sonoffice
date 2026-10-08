@@ -26,3 +26,4 @@ Antes de implementar cualquier solicitud en este repositorio, lee este archivo y
 2. Actualiza `docs/ai-context.md` cuando cambien comportamiento, flujo de trabajo, permisos, seeds o contexto de handoff.
 3. Actualiza `docs/engram.md` si la nueva memoria o el nuevo contexto deben viajar a otra máquina.
 4. Guarda descubrimientos, decisiones, correcciones de bugs y convenciones importantes en Engram bajo el proyecto `sonoffice`.
+5. Mantener actualizado el `docs/modules-status.md` para saber en que estado esta un  modulo.

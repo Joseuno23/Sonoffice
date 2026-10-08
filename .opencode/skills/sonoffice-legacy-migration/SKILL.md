@@ -25,6 +25,7 @@ Usa este skill en cualquier migración o cambio funcional de módulos Sonoffice,
 - Usa español neutro en UI y documentación. Evita tono argentino.
 - Evita textos explicativos en pantallas; usa solo etiquetas claras, mensajes de validación, disclaimers o alertas necesarias.
 - Mantén diseño, tablas, botones, filtros, modales y estructura visual consistentes con los módulos ya migrados.
+- Si creamos tablas nuevas, o alguna modificacion en base de datos, creacion de registros claves crea un archivo en /docs/sql con el script SQL idempotente para yo ejecutarlo manualmente.
 
 ## Decision Gates
 
