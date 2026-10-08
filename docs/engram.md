@@ -103,6 +103,16 @@ Each entry includes the Engram ID, creation date, type, title, optional topic ke
 
 **Learned**: El reporte mantiene fecha obligatoria y proveedor opcional, no expone cliente, exporta CSV con BOM/`;` por consistencia con reportes migrados, replica porcentajes con sufijo ` %` y usa `LEFT JOIN sys_tipo_servicio` deliberadamente para no excluir OG migradas sin servicio. El runner `npm run db:apply-media-seeds` incluye el seed `016` y reporta conteos `reports.*`; la ejecución local confirmó `reports.expense-orders` y `reports.expense-orders.general`.
 
+### 2026-10-08 — Mantener línea visual entre módulos hermanos
+
+**What**: Se corrigió la consistencia visual de Órdenes de gastos: el paginador del listado OG sigue el footer de `CostOrdersList`, y las firmas del imprimible OG vuelven a su estructura original de una línea con 3 columnas.
+
+**Why**: El usuario aclaró que los módulos migrados deben mantener una única línea de diseño respecto al módulo hermano de referencia, salvo pedido explícito.
+
+**Where**: `apps/web/src/pages/ExpenseOrdersList.tsx`, `apps/web/src/pages/ExpenseOrderPrint.tsx`, `docs/ai-context.md`, `docs/engram.md`.
+
+**Learned**: No cambiar estructuras visuales propias que ya estaban correctas por copiar otro módulo; copiar la línea común solo donde aplica. Para OG, el paginador se alinea con OC, pero las firmas permanecen en 3 columnas.
+
 ### #3869 — Discovered initial migration structure
 
 - Date: `2026-07-16 16:06:20`

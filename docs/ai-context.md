@@ -400,6 +400,15 @@ de producción externa y ajustes alrededor de órdenes de costo.
   `CostOrderPrint`: toolbar, hoja, cabecera, filas compactas, secciones, tabla,
   totales, observación, nota y firmas. Mantiene autoimpresión y el título saneado
   `OG_<id>_<proveedor>` para sugerir nombre de PDF.
+  Importante: las firmas de OG quedan en una sola línea de 3 columnas; no se
+  deben compactar al patrón de 2 columnas de OC sin pedido explícito.
+  - `apps/web/src/pages/ExpenseOrderPrint.tsx`
+- 2026-10-08: Convención de UI para módulos migrados: mantener la misma línea
+  visual del módulo hermano existente salvo pedido explícito del usuario. En OG,
+  el paginador del listado debe seguir el footer de `CostOrdersList` (rango,
+  botones con iconos y estilos de navegación), mientras que las firmas del
+  imprimible conservan su estructura propia de 3 columnas.
+  - `apps/web/src/pages/ExpenseOrdersList.tsx`
   - `apps/web/src/pages/ExpenseOrderPrint.tsx`
 - 2026-10-07: Estados de Órdenes de gastos validados contra `cat_estados`. El
   repositorio nuevo usa `LEFT JOIN cat_estados e ON o.ordgas_estado = e.est_id`

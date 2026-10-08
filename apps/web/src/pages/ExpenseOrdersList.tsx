@@ -11,6 +11,7 @@ import { api } from '../services/api';
 const card: CSSProperties = { background: 'var(--surface,#fff)', border: '1px solid var(--border,#e5e8ec)', borderRadius: 16, boxShadow: 'var(--shadow)', overflow: 'hidden' };
 const th: CSSProperties = { textAlign: 'left', padding: '11px 16px', fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted,#64748b)', borderBottom: '1px solid var(--border,#e5e8ec)' };
 const input: CSSProperties = { width: '100%', minHeight: 38, padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border,#e5e8ec)', background: 'var(--surface-2,#f7f8fa)', color: 'var(--fg,#0f172a)', fontSize: 13, outline: 'none', boxSizing: 'border-box' };
+const navBtn = (disabled: boolean): CSSProperties => ({ height: 34, padding: '0 14px', borderRadius: 9, border: '1px solid var(--border,#e5e8ec)', background: 'var(--surface,#fff)', color: disabled ? 'var(--faint,#cbd5e1)' : 'var(--fg-2,#334155)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.55 : 1 });
 const PER = 10;
 
 interface ExpenseOrderItem { id: number; fecha: string | null; estado: string | null; estadoColor: string | null; proveedor: string | null; usuario: string | null; total: number; aprobada: boolean; recurrente: boolean; permittedActions: string[]; }
@@ -94,7 +95,22 @@ export default function ExpenseOrdersList() {
         <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 820 }}><thead><tr style={{ background: 'var(--surface-2,#f7f8fa)' }}><th style={th}>Orden</th><th style={th}>Proveedor</th><th style={th}>Usuario</th><th style={th}>Estado</th><th style={{ ...th, textAlign: 'right' }}>Total</th><th style={th}></th></tr></thead><tbody>
           {items.map((order) => <tr key={order.id} style={{ borderBottom: '1px solid var(--border,#e5e8ec)' }}><td style={{ padding: '13px 16px' }}><button onClick={() => navigate(`/medios/ordenes-gastos/${order.id}/editar`)} style={{ padding: 0, border: 0, background: 'transparent', color: 'var(--brand,#0891b2)', fontWeight: 800, cursor: 'pointer' }}>#{order.id}</button><div style={{ fontSize: 11, color: 'var(--muted,#64748b)' }}>{formatDate(order.fecha)}</div></td><td style={{ padding: '13px 16px', fontSize: 13 }}>{order.proveedor || '—'}</td><td style={{ padding: '13px 16px', fontSize: 13 }}>{order.usuario || '—'}</td><td style={{ padding: '13px 16px' }}><StatusBadge order={order} /></td><td style={{ padding: '13px 16px', textAlign: 'right', fontWeight: 800 }}>{fmtMoneyFull(order.total)}</td><td style={{ padding: '13px 16px', textAlign: 'right' }}><button onClick={(event) => { const rc = event.currentTarget.getBoundingClientRect(); setMenu({ id: order.id, actions: order.permittedActions, x: rc.right, y: rc.bottom }); }} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border,#e5e8ec)', background: '#fff', cursor: 'pointer' }}><Icon d="M12 6h.01M12 12h.01M12 18h.01" size={18} sw={2.5} /></button></td></tr>)}
         </tbody></table></div>
-        <div style={{ padding: 14, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}><span>{total.toLocaleString('es-CO')} órdenes</span><div style={{ display: 'flex', gap: 8 }}><button disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</button><span>{page} / {totalPages}</span><button disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Siguiente</button></div></div>
+        <div style={{ padding: '13px 18px', borderTop: '1px solid var(--border,#e5e8ec)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 12.5, color: 'var(--muted,#64748b)' }}>
+            Mostrando <b style={{ color: 'var(--fg,#0f172a)' }}>{total ? (page - 1) * PER + 1 : 0}–{Math.min(page * PER, total)}</b> de <b style={{ color: 'var(--fg,#0f172a)' }}>{total.toLocaleString('es-CO')}</b> órdenes
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} style={navBtn(page <= 1)}>
+              <Icon d="M15 6l-6 6 6 6" size={15} sw={2} />Anterior
+            </button>
+            <span style={{ fontSize: 12.5, color: 'var(--fg-2,#334155)', fontWeight: 600, fontFamily: 'JetBrains Mono,monospace' }}>
+              {page} / {totalPages.toLocaleString('es-CO')}
+            </span>
+            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} style={navBtn(page >= totalPages)}>
+              Siguiente<Icon d="M9 6l6 6-6 6" size={15} sw={2} />
+            </button>
+          </div>
+        </div>
       </> : <div style={{ padding: 60, textAlign: 'center', color: 'var(--muted,#64748b)' }}>No hay órdenes de gastos para mostrar.</div>}
     </div>
     {menu && <><div onClick={() => setMenu(null)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} /><div style={{ position: 'fixed', zIndex: 41, top: menu.y + 6, left: menu.x - 190, width: 190, background: '#fff', border: '1px solid var(--border,#e5e8ec)', borderRadius: 10, padding: 6, boxShadow: 'var(--shadow-lg)' }}>{ACTIONS.filter((a) => menu.actions.includes(a.code)).map((a) => <button key={a.code} onClick={() => { const id = menu.id; const order = items.find((item) => item.id === id); setMenu(null); if (a.code === 'edit' || a.code === 'view-canceled') navigate(`/medios/ordenes-gastos/${id}/editar`); if (a.code === 'print') window.open(`/medios/ordenes-gastos/${id}/imprimir?autoprint=1`, '_blank', 'noopener,noreferrer'); if (a.code === 'print-preview') window.open(`/medios/ordenes-gastos/${id}/imprimir`, '_blank', 'noopener,noreferrer'); if (a.code === 'approve') setConfirm({ id, action: 'approve' }); if (a.code === 'anule') setConfirm({ id, action: 'anule' }); if (a.code === 'recurrence') setRecurrence({ id, start: '', end: '', active: !!order?.recurrente }); }} style={{ width: '100%', padding: '9px 11px', border: 0, background: 'transparent', borderRadius: 8, textAlign: 'left', cursor: 'pointer', color: a.danger ? '#ef4444' : 'var(--fg-2,#334155)' }}>{a.label}</button>)}</div></>}
