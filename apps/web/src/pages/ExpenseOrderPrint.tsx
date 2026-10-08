@@ -197,13 +197,10 @@ export default function ExpenseOrderPrint() {
               </div>
             </div>
 
-            <div style={{ ...section, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 18, paddingTop: 12, paddingBottom: 10 }} className="expense-order-print-section expense-order-print-grid expense-order-print-keep">
+            <div style={{ ...section, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, paddingTop: 12, paddingBottom: 10 }} className="expense-order-print-section expense-order-print-grid expense-order-print-keep">
               <div>
                 <div style={label}>Elaborado por</div>
                 <div style={{ marginTop: 24, borderTop: '1px solid var(--fg,#0f172a)', paddingTop: 6, fontSize: 11.5, fontWeight: 800 }}>{data.user || 'Sin registro'}</div>
-              </div>
-              <div>
-                <div style={label}>Autorizado por</div>
                 <div style={{ marginTop: 24, borderTop: '1px solid var(--fg,#0f172a)', paddingTop: 6, fontSize: 11.5, fontWeight: 800 }}>{data.order.aprobada ? 'Firma autorizada' : 'Pendiente'}</div>
               </div>
               <div>

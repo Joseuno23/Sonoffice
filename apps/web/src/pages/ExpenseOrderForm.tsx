@@ -9,6 +9,7 @@ const card: CSSProperties = { background: 'var(--surface,#fff)', border: '1px so
 const lbl: CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--fg-2,#334155)', marginBottom: 8 };
 const inBase: CSSProperties = { width: '100%', minHeight: 44, padding: '0 13px', borderRadius: 10, border: '1px solid var(--border-strong,#d5d9e0)', background: 'var(--surface,#fff)', color: 'var(--fg,#0f172a)', fontSize: 14, outline: 'none', boxSizing: 'border-box' };
 const btnGhost: CSSProperties = { height: 40, padding: '0 15px', border: '1px solid var(--border-strong,#d5d9e0)', background: 'var(--surface,#fff)', color: 'var(--fg-2,#334155)', borderRadius: 10, fontWeight: 600, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 };
+const btnPrimary: CSSProperties = { height: 40, padding: '0 18px', border: 'none', borderRadius: 10, background: 'var(--primary,#0f172a)', color: '#fff', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 };
 
 interface Option { id: number; label: string; }
 interface DetailLine { idDetalle?: number; detalle: string; valor: string; }
@@ -103,7 +104,7 @@ export default function ExpenseOrderForm() {
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-.02em', margin: '0 0 5px', color: 'var(--fg,#0f172a)' }}>{isEdit ? `${editable ? 'Editar' : 'Ver'} orden de gastos #${id}` : 'Nueva orden de gastos'}</h1>
         <p style={{ margin: 0, color: 'var(--muted,#64748b)', fontSize: 14 }}>{editable ? 'Completa la cabecera y el detalle de la orden.' : `Orden en estado ${estado || '—'} de solo lectura.`}</p>
       </div>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><button onClick={() => navigate('/medios/ordenes-gastos/listar')} style={btnGhost}>Volver</button>{editable && <button onClick={submit} disabled={!canSubmit} style={{ height: 40, padding: '0 18px', border: 0, borderRadius: 10, background: canSubmit ? 'var(--primary,#0f172a)' : 'var(--border-strong,#d5d9e0)', color: '#fff', fontWeight: 800, cursor: canSubmit ? 'pointer' : 'default' }}>{saving ? 'Guardando…' : 'Guardar orden'}</button>}</div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><button onClick={() => navigate('/medios/ordenes-gastos/listar')} style={btnGhost}>Volver</button>{editable && <button onClick={submit} disabled={!canSubmit} style={btnPrimary}>{saving ? 'Guardando…' : 'Guardar orden'}</button>}</div>
     </div>
     {message && <AlertMessage type={message.type} style={{ marginBottom: 16 }}>{message.text}</AlertMessage>}
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.7fr) minmax(300px,.8fr)', gap: 20 }}>
