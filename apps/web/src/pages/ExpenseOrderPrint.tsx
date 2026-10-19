@@ -200,15 +200,25 @@ export default function ExpenseOrderPrint() {
             <div style={{ ...section, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 18, paddingTop: 12, paddingBottom: 10 }} className="expense-order-print-section expense-order-print-grid expense-order-print-keep">
               <div>
                 <div style={label}>Elaborado por</div>
-                <div style={{ marginTop: 24, borderTop: '1px solid var(--fg,#0f172a)', paddingTop: 6, fontSize: 11.5, fontWeight: 800 }}>{data.user || 'Sin registro'}</div>
+                <div style={{ height: 64, marginTop: 8, position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: 0, right: 0, bottom: 18, borderTop: '1px solid var(--fg,#0f172a)' }} />
+                  <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, fontSize: 11.5, fontWeight: 800 }}>{data.user || 'Sin registro'}</div>
+                </div>
               </div>
               <div>
                 <div style={label}>Autorizado por</div>
-                <div style={{ marginTop: 24, borderTop: '1px solid var(--fg,#0f172a)', paddingTop: 6, fontSize: 11.5, fontWeight: 800 }}>{data.order.aprobada ? 'Firma autorizada' : 'Pendiente'}</div>
+                <div style={{ height: 64, marginTop: 8, position: 'relative' }}>
+                  {data.order.aprobada ? <img src="/firma.PNG" alt="Firma autorizada" style={{ position: 'absolute', left: 0, bottom: 18, maxWidth: 190, maxHeight: 48, objectFit: 'contain' }} /> : null}
+                  <div style={{ position: 'absolute', left: 0, right: 0, bottom: 18, borderTop: '1px solid var(--fg,#0f172a)' }} />
+                  <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, fontSize: 11.5, fontWeight: 800 }}>Firma autorizada</div>
+                </div>
               </div>
               <div>
                 <div style={label}>Recibido por</div>
-                <div style={{ marginTop: 24, borderTop: '1px solid var(--fg,#0f172a)', paddingTop: 6, fontSize: 11.5, fontWeight: 800 }}>Firma y sello</div>
+                <div style={{ height: 64, marginTop: 8, position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: 0, right: 0, bottom: 18, borderTop: '1px solid var(--fg,#0f172a)' }} />
+                  <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, fontSize: 11.5, fontWeight: 800 }}>Firma y sello</div>
+                </div>
               </div>
             </div>
           </>

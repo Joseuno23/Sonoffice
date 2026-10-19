@@ -113,6 +113,16 @@ Each entry includes the Engram ID, creation date, type, title, optional topic ke
 
 **Learned**: No cambiar estructuras visuales propias que ya estaban correctas por copiar otro módulo; copiar la línea común solo donde aplica. Para OG, el paginador se alinea con OC, pero las firmas permanecen en 3 columnas.
 
+### 2026-10-08 — Firma autorizada en imprimible de OG
+
+**What**: Se agregó la firma corporativa estática `firma.PNG` al imprimible de Órdenes de gastos en la columna “Autorizado por”.
+
+**Why**: El legacy `V_Pdf.php` pega la firma como imagen cuando la orden está aprobada; la migración mostraba texto en lugar de replicar ese comportamiento.
+
+**Where**: `apps/web/public/firma.PNG`, `apps/web/src/pages/ExpenseOrderPrint.tsx`, `docs/ai-context.md`, `docs/engram.md`.
+
+**Learned**: La firma no pertenece al usuario/cargo ni requiere join o endpoint: es el activo corporativo fijo `Erp/dist/img/firma.PNG`, visible solo con `aprobada = 1`. Para OG no aprobadas, el fallback legacy es dejar el espacio vacío sobre la línea.
+
 ### #3869 — Discovered initial migration structure
 
 - Date: `2026-07-16 16:06:20`

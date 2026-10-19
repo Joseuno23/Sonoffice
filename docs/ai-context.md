@@ -410,6 +410,13 @@ de producción externa y ajustes alrededor de órdenes de costo.
   imprimible conservan su estructura propia de 3 columnas.
   - `apps/web/src/pages/ExpenseOrdersList.tsx`
   - `apps/web/src/pages/ExpenseOrderPrint.tsx`
+- 2026-10-08: El imprimible de OG replica la firma autorizada del legacy: usa
+  la imagen corporativa estática `/firma.PNG` solo cuando `aprobada = 1`; cuando
+  no está aprobada, el espacio sobre la línea queda vacío, sin texto alternativo.
+  La imagen fuente se copia a `apps/web/public/firma.PNG` para no servir assets
+  desde `Erp/` en runtime.
+  - `apps/web/public/firma.PNG`
+  - `apps/web/src/pages/ExpenseOrderPrint.tsx`
 - 2026-10-07: Estados de Órdenes de gastos validados contra `cat_estados`. El
   repositorio nuevo usa `LEFT JOIN cat_estados e ON o.ordgas_estado = e.est_id`
   para listado/detalle y `findStatuses()` consulta `ord_gastos` + `cat_estados`;
